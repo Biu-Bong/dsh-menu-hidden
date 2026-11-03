@@ -6,9 +6,9 @@ DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API �
 
 ## 效果
 
-示意图，按真实界面的文案、分组顺序和配色复刻。图里的第三方模型一律用 OpenAI / Anthropic / Google 这类通用名字代替。
+示意图，按真实界面的文案、分组顺序和配色复刻。图里的第三方厂商与模型都是随手编的示例名字（OpenAI 的 GPT 6 Astra / GPT 6.1 Sol、Anthropic 的 Claude Opus 5.5、xAI 的 Grok 4.6 / 4.7），不代表任何真实账号。
 
-**模型下拉框** 左：装之前（DeepSeek 账号 / DeepSeek 两组重复） 右：装之后
+**模型下拉框** 左：装之前（DeepSeek 账号 / DeepSeek 两组重复） 右：装之后（只剩 OpenAI / Anthropic / xAI）
 
 <p><img src="docs/model-menu-before.png" width="290"> <img src="docs/model-menu-after.png" width="290"></p>
 
@@ -30,23 +30,51 @@ DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API �
 
 ## 装
 
+`--profile` 后面写你要装进哪个 profile。桌面版和浏览器版是两个 profile，各装各的，也可以都装。
+
+| 你用的形态 | profile 名 | 装完怎么生效 |
+|---|---|---|
+| 桌面应用（Electron，`DeepSeek Harness.exe`） | `desktop` | 重启应用；第 5 条还要在设置里点一次「写入补丁」，再重启一次 |
+| 浏览器版 `dsh web` | `web` | 重启 `dsh web` 进程，然后刷新页面 |
+
+桌面版：
+
 ```bash
-# 用 DSH 自带的 CLI（应用菜单「应用 → 管理 dsh 命令…」会把 dsh 写进 PATH）
 dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden
 
 # 锁到某个提交，升级不漂移
 dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#<commit-sha>
 ```
 
-装完**重启一次 DSH**：bundle 的挂载行（`dsh.profile.bundles`）在启动时读。
+浏览器版：
+
+```bash
+dsh plugin --profile web add github:Biu-Bong/dsh-menu-hidden
+
+# 装完重启 web 进程
+dsh web --profile web
+```
+
+`dsh` 是 DSH 自带的 CLI（应用菜单「应用 → 管理 dsh 命令…」会把 dsh 写进 PATH）。
+装完**重启一次**：bundle 的挂载行（`dsh.profile.bundles`）是启动时读的。
 
 卸载：
 
 ```bash
 dsh plugin --profile desktop remove dsh-menu-hidden
+dsh plugin --profile web remove dsh-menu-hidden
 ```
 
 也可以把仓库地址交给 DSH 助手，一句话：`装一下 github:Biu-Bong/dsh-menu-hidden`。
+
+## 支持范围
+
+| 功能 | 桌面版 | `dsh web` |
+|---|---|---|
+| 1 / 2 / 3 / 4 / 6（模型下拉框、设置·模型、账号菜单那五条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
+| 5（应用菜单「刷新页面 / 重启应用与 Host」） | ✅ 点「写入补丁」+ 重启应用 | — 浏览器里没有原生应用菜单 |
+
+为什么 web 端也能跑：客户端半用的是 Web UI 的 DOM 和 slot，`package.json` 里 `dsh.client.platform` 就是 `"web"`，桌面版加载的也是同一套 Web 前端；宿主半只要求 `webServer` 服务，`web` profile 里也有。第 5 条走的是 Electron 主进程的 `Menu.buildFromTemplate(...).popup()`，浏览器里没有承载物——这种环境下宿主半找不到 `lib/main.js`，设置页那一行会显示「没找到外壳文件」，点按钮只会回一句说明，不会动到任何文件。
 
 ## 六条功能与实现
 
