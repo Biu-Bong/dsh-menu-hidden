@@ -35,7 +35,8 @@
     "client.js",
     "cordis.patch.yml",
     "README.md",
-    "shell"
+    "shell",
+    "test"
   ],
   "engines": {
     "node": ">=20"
@@ -50,5 +51,8 @@
         "@deepseek-ai/dsh-client-locale"
       ]
     }
+  },
+  "scripts": {
+    "test:client": "node test/client-load.mjs client.js"
   }
 }

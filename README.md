@@ -159,7 +159,7 @@ dsh plugin --profile desktop remove dsh-menu-hidden
 
 ## 排障：0.1.0 重启后打不开
 
-0.1.0 有个致命 bug，症状是**装完重启 DSH 起不来**。崩溃日志（`%APPDATA%@deepseek-aidsh-desktoplogscrash-*-web-boot.log`）长这样：
+0.1.0 有个致命 bug，症状是**装完重启 DSH 起不来**。崩溃日志长这样（Windows 上在 `%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*-web-boot.log`，本机实体是 `D:\DeepSeek\cache\electron\dsh-desktop\logs`）：
 
 ```text
 phase: running
@@ -182,6 +182,8 @@ return { name: ID, inject: ["slots", "locale"], apply };
 dsh plugin --profile desktop remove dsh-menu-hidden
 dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.1.1
 ```
+
+回归测试也在仓库里：`node test/client-load.mjs client.js` 用一份假的 `window.__ModuleLoader__` 把 factory 跑一遍 —— 0.1.0 的写法会在这一步抛 `ReferenceError: module is not defined`，0.1.1 返回 `{ name, inject, apply }`。
 
 如果已经起不来、连界面都进不去：把 `profiles/<名字>/node_modules/dsh-menu-hidden` 挪走，并从同一个 `package.json` 的 `dsh.profile.bundles` 里删掉 `dsh-menu-hidden` 那一行，就能先启动；进了界面之后再装 0.1.1。
 
