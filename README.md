@@ -157,6 +157,34 @@ dsh plugin --profile desktop remove dsh-menu-hidden
 
 外壳补丁独立于插件存在：卸载插件不会把 `main.js` 改回去。要还原就先在设置页点「还原」，或跑 `node shell/patch-shell-menu.mjs --revert`。
 
+## 排障：0.1.0 重启后打不开
+
+0.1.0 有个致命 bug，症状是**装完重启 DSH 起不来**。崩溃日志（`%APPDATA%@deepseek-aidsh-desktoplogscrash-*-web-boot.log`）长这样：
+
+```text
+phase: running
+Error: web boot: 1 entry did not activate
+@local/dsh-menu-hidden: import failed: module is not defined
+    at file:///<安装目录>/resources/app/lib/main.js:12492:15
+```
+
+原因：`client.js` 结尾写了 `module.exports = { ... }; return module.exports`。浏览器里的 `window.__ModuleLoader__` 只给 factory 传 `require`，**没有 CommonJS 的 `module`**；官方那些包能这么写，是因为打包器会在文件头上补 `var module = { exports: {} }` 两行，手写的 `client.js` 没有这层壳。于是模块在 import 阶段就抛 `ReferenceError: module is not defined`，整条客户端模块图判为未激活，前端直接起不来。
+
+0.1.1 的修法是直接返回插件对象（cordis 认 `{ name, inject, apply }` 形状）：
+
+```js
+return { name: ID, inject: ["slots", "locale"], apply };
+```
+
+装了 0.1.0 的话，换成 0.1.1：
+
+```bash
+dsh plugin --profile desktop remove dsh-menu-hidden
+dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.1.1
+```
+
+如果已经起不来、连界面都进不去：把 `profiles/<名字>/node_modules/dsh-menu-hidden` 挪走，并从同一个 `package.json` 的 `dsh.profile.bundles` 里删掉 `dsh-menu-hidden` 那一行，就能先启动；进了界面之后再装 0.1.1。
+
 ## License
 
 MIT

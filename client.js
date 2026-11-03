@@ -540,7 +540,9 @@ window.__ModuleLoader__.load({
 			}, SettingsSection)));
 		}
 
-		module.exports = { name: ID, inject: ["slots", "locale"], apply };
-		return module.exports;
+		// factory 的返回值就是模块导出：浏览器里没有 CommonJS 的 module / exports，
+		// 官方打包产物是构建器自己补 `var module = { exports: {} }` 那两行；手写的
+		// client.js 没有那层壳，所以直接 return 插件对象（cordis 支持 { apply } 形状）。
+		return { name: ID, inject: ["slots", "locale"], apply };
 	},
 });
