@@ -89,7 +89,7 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 ## 为什么不会闪
 
-隐藏动作走 `MutationObserver`，回调里**同步**扫一遍：MutationObserver 的回调是微任务，浏览器在一帧的微任务队列清空之后才绘制，所以节点挂进 DOM 的那一刻就被打上 `display:none`，肉眼看不到「先出现、再消失」。0.1.0 用 `setTimeout(..., 120)` 合并扫描，等于把工作推到下一帧之后，这就是闪烁的来源。
+隐藏动作走 `MutationObserver`，回调里**同步**扫，而且只扫这次变动的那一小块子树（`record.target` 与 `addedNodes`）：MutationObserver 的回调是微任务，浏览器在一帧的微任务队列清空之后才绘制，所以节点挂进 DOM 的那一刻就被打上 `display:none`，肉眼看不到「先出现、再消失」。0.1.0 用 `setTimeout(..., 120)` 合并扫描，等于把工作推到下一帧之后，这就是闪烁的来源。
 
 账号那一行另外叠了一层保险：插件往 `document.documentElement` 挂 `data-dshmh-account-row="1"`，配一条 `li[class*="_rowCard"]:has([class*="_accountStatus"]){display:none!important}` 的 CSS —— 样式在第一次绘制前就生效，连 JS 都不用等。
 
@@ -188,6 +188,8 @@ return { name: ID, inject: ["slots", "locale"], apply };
 dsh plugin --profile desktop remove dsh-menu-hidden
 dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.1.1
 ```
+
+两个测试：`node test/client-load.mjs client.js`（模块能不能加载）、`node test/client-dom.mjs client.js`（拿 jsdom 造一份真的结构化 DOM，验证六条里那五条 DOM 的命中与还原；需要先 `npm i --no-save jsdom`）。
 
 回归测试也在仓库里：`node test/client-load.mjs client.js` 用一份假的 `window.__ModuleLoader__` 把 factory 跑一遍 —— 0.1.0 的写法会在这一步抛 `ReferenceError: module is not defined`，0.1.1 返回 `{ name, inject, apply }`。
 

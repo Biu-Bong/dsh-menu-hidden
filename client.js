@@ -157,6 +157,8 @@ window.__ModuleLoader__.load({
 		const FEEDBACK_LABELS = ["意见反馈", "Feedback"];
 		/** 设置页 provider 行的类名后缀（Vite CSS Modules：_hash_rowName）。 */
 		const ROW_NAME_SELECTOR = '[class*="_rowName"]';
+		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
+		const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 		const ACCOUNT_BADGE_SELECTOR = '[class*="_accountStatus"]';
 
 		// ── §4 隐藏 / 还原 ────────────────────────────────────────────────────
@@ -192,7 +194,8 @@ window.__ModuleLoader__.load({
 
 		/** 模型下拉框：按分组标题认，连标题带模型整组藏。 */
 		function sweepModelMenu(root) {
-			for (const section of root.querySelectorAll("section[data-menu-group]")) {
+			const sections = root.matches(MENU_GROUP_SELECTOR) ? [root, ...root.querySelectorAll(MENU_GROUP_SELECTOR)] : [...root.querySelectorAll(MENU_GROUP_SELECTOR)];
+			for (const section of sections) {
 				const heading = section.querySelector("[data-menu-group-heading]");
 				if (heading === null) continue;
 				const text = (heading.textContent ?? "").trim();
@@ -208,7 +211,8 @@ window.__ModuleLoader__.load({
 
 		/** 设置 · 模型：藏官方 API 整行，藏账号行的「已登录」。 */
 		function sweepSettingsRows(root) {
-			for (const name of root.querySelectorAll(ROW_NAME_SELECTOR)) {
+			const names = root.matches(ROW_NAME_SELECTOR) ? [root, ...root.querySelectorAll(ROW_NAME_SELECTOR)] : [...root.querySelectorAll(ROW_NAME_SELECTOR)];
+			for (const name of names) {
 				const row = name.closest("li");
 				if (row === null) continue;
 				const text = (name.textContent ?? "").trim();
@@ -225,7 +229,8 @@ window.__ModuleLoader__.load({
 
 		/** 账号菜单：藏「意见反馈」，连带把只剩它一个的容器一起藏，别留孤零零的分隔线。 */
 		function sweepAccountMenu(root) {
-			for (const item of root.querySelectorAll('[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]')) {
+			const items = root.matches(MENU_ITEM_SELECTOR) ? [root, ...root.querySelectorAll(MENU_ITEM_SELECTOR)] : [...root.querySelectorAll(MENU_ITEM_SELECTOR)];
+			for (const item of items) {
 				const text = (item.textContent ?? "").trim();
 				if (!matches(FEEDBACK_LABELS, text)) continue;
 				setHidden(item, prefs.feedback === true);
@@ -236,10 +241,13 @@ window.__ModuleLoader__.load({
 			}
 		}
 
-		/** 全量扫一遍。便宜（三条 querySelectorAll），幂等。 */
-		function sweep() {
-			const root = document.body;
-			if (root === null) return;
+		/**
+		 * 对一棵子树（含它自己）跑三步。root 可以是 document.body，也可以是刚挂上来的节点 ——
+		 * 只扫新增的那一小块，流式输出时不会因为每次都全量 querySelectorAll 把主线程拖住。
+		 * @param {Element | null} root - 扫描起点。
+		 */
+		function sweepRoot(root) {
+			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
 			for (const step of [sweepModelMenu, sweepSettingsRows, sweepAccountMenu]) {
 				try {
@@ -248,6 +256,11 @@ window.__ModuleLoader__.load({
 					console.error("[dsh-menu-hidden] sweep step failed", error);
 				}
 			}
+		}
+
+		/** 全量扫一遍。启动、切开关、整块替换时用。 */
+		function sweep() {
+			sweepRoot(document.body);
 		}
 
 		// ── §5 观察器 ─────────────────────────────────────────────────────────
@@ -259,11 +272,19 @@ window.__ModuleLoader__.load({
 		 * 早先版本用 120ms 定时器合并，等于把工作推到下一帧之后 —— 那正是闪烁的来源。
 		 * 只观察 childList：自己设 display 是 attributes 变动，观察了会自触死循环。
 		 */
-		function onMutations() {
-			try {
-				sweep();
-			} catch (error) {
-				console.error("[dsh-menu-hidden] sweep failed", error);
+		function onMutations(records) {
+			const seen = new Set();
+			for (const record of records) {
+				const candidates = [record.target, ...record.addedNodes];
+				for (const node of candidates) {
+					if (node === null || node === undefined || node.nodeType !== 1 || seen.has(node)) continue;
+					seen.add(node);
+					try {
+						sweepRoot(node);
+					} catch (error) {
+						console.error("[dsh-menu-hidden] sweep failed", error);
+					}
+				}
 			}
 		}
 
