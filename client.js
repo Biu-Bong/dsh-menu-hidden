@@ -18,7 +18,7 @@
 
 window.__ModuleLoader__.load({
 	// factory id 必须等于 package.json 的包名，否则 boot 图里找不到 factory。
-	id: "dsh-menu-hidden",
+	id: "@local/dsh-menu-hidden",
 	factory: (require) => {
 		const React = require("react");
 
@@ -38,6 +38,7 @@ window.__ModuleLoader__.load({
 		/** 打在被隐藏节点上的标记；值 = 隐藏前的整个 style 属性，用来原样还原。 */
 		const MARK = "data-dshmh-hidden";
 		const SHELL_ROUTE = "/dsh-menu-hidden/api/shell-menu";
+		const REASONING_ROUTE = "/dsh-menu-hidden/api/reasoning";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -45,20 +46,35 @@ window.__ModuleLoader__.load({
 			zh: {
 				sectionLabel: "菜单隐藏",
 				title: "菜单隐藏",
-				desc: "把界面上重复的 DeepSeek 账号 / 官方 API 入口收起来，并给应用菜单补上刷新与重启。开关保存后立刻生效，不用刷新页面。",
+				desc: "把界面上重复的 DeepSeek 账号 / 官方 API 入口收起来，给应用菜单补上刷新与重启，并统一给模型供应商写推理等级。开关保存后立刻生效，不用刷新页面。",
 				groupPicker: "模型选择框",
 				groupSettings: "设置 · 模型",
-				groupMenus: "菜单",
 				accountGroupLabel: "隐藏「DeepSeek 账号」分组",
 				accountGroupHint: "模型下拉框里那个带账号图标的分组，连它的模型一起藏。",
-				officialGroupLabel: "隐藏「DeepSeek」（官方 API）分组",
+				officialGroupLabel: "隐藏「DeepSeek」官方 API 分组",
 				officialGroupHint: "模型下拉框里官方 API 那一组。两组都关掉，下拉框会只剩第三方模型。",
-				accountRowLabel: "隐藏「DeepSeek 账号」整行",
+				accountRowLabel: "隐藏「DeepSeek 账号」选项卡",
 				accountRowHint: "设置 · 模型里账号那一条整行消失，右边的编辑 / 删除一起走 —— 不是只藏「已登录」三个字。",
-				officialRowLabel: "隐藏「DeepSeek」官方 API 那一行",
+				officialRowLabel: "隐藏「DeepSeek」官方 API 选项卡",
 				officialRowHint: "设置 · 模型里只留一个 DeepSeek 账号，不再出现第二个 DeepSeek 行。整行藏掉后，改官方 API 的入口也一起没了。",
-				feedbackLabel: "隐藏账号菜单里的「意见反馈」",
-				feedbackHint: "右下角账号菜单里那一项。旁边的「设置」「退出登录」保持原样。",
+				groupReasoning: "推理等级",
+				reasoningDesc: "给每个模型供应商写一行 reasoning，中转站后台才显示得出推理等级；不写那边只画一道杠。",
+				reasoningGlobal: "全局默认",
+				reasoningGlobalHint: "所有没单独设置的供应商都用这一档。",
+				reasoningNone: "不设置",
+				reasoningFollow: "跟随全局",
+				reasoningProviders: "按供应商单独设置",
+				reasoningApply: "写入配置",
+				reasoningReload: "重新读取",
+				reasoningApplied: "已写入，下一条消息就按新的等级走。",
+				reasoningUnchanged: "配置已经一致，没有改动文件。",
+				reasoningFailed: "写入失败：",
+				reasoningEmpty: "没找到带 llm-pi-ai 的 profile 配置。",
+				groupAccount: "账号菜单",
+				feedbackLabel: "隐藏「意见反馈」",
+				feedbackHint: "右下角头像点开的那份菜单里的「意见反馈」。",
+				signOutLabel: "隐藏「退出登录」",
+				signOutHint: "同一份菜单里的「退出登录」。藏掉之后账号菜单只剩「设置」；需要退出时把这里关掉即可。",
 				shellLabel: "应用菜单：在「退出」上方加「刷新页面」「重启应用与 Host」",
 				shellHint: "这两项在外壳主进程里，插件给 lib/main.js 打开官方留着的开关（幂等、留备份、可还原）。改完要重启一次应用才看得到。",
 				shellStateOn: "已写入外壳",
@@ -79,20 +95,35 @@ window.__ModuleLoader__.load({
 			en: {
 				sectionLabel: "Menu Hiding",
 				title: "Menu Hiding",
-				desc: "Tuck away the duplicate DeepSeek account / official API entries, and add Reload and Restart to the application menu. Toggles take effect the moment you flip them.",
+				desc: "Tuck away the duplicate DeepSeek account / official API entries, add Reload and Restart to the application menu, and write one thinking-depth line for every model provider. Toggles take effect the moment you flip them.",
 				groupPicker: "Model picker",
 				groupSettings: "Settings · Models",
-				groupMenus: "Menus",
 				accountGroupLabel: "Hide the \"DeepSeek Account\" group",
 				accountGroupHint: "The account group at the top of the model dropdown, models included.",
-				officialGroupLabel: "Hide the \"DeepSeek\" (official API) group",
+				officialGroupLabel: "Hide the \"DeepSeek\" official API group",
 				officialGroupHint: "The official API group in the model dropdown. Hiding both leaves only third-party models.",
-				accountRowLabel: "Hide the whole \"DeepSeek Account\" row",
+				accountRowLabel: "Hide the \"DeepSeek Account\" tab",
 				accountRowHint: "The entire row disappears from the Models page, buttons included — not just the Signed in text.",
-				officialRowLabel: "Hide the \"DeepSeek\" official API row",
+				officialRowLabel: "Hide the \"DeepSeek\" official API tab",
+				groupReasoning: "Reasoning level",
+				reasoningDesc: "Writes one reasoning line per provider so the relay dashboard can show a reasoning level instead of a dash.",
+				reasoningGlobal: "Global default",
+				reasoningGlobalHint: "Every provider without its own setting follows this level.",
+				reasoningNone: "Not set",
+				reasoningFollow: "Follow global",
+				reasoningProviders: "Per provider",
+				reasoningApply: "Write to config",
+				reasoningReload: "Reload",
+				reasoningApplied: "Written. The next message uses the new level.",
+				reasoningUnchanged: "Config already matches; nothing written.",
+				reasoningFailed: "Failed: ",
+				reasoningEmpty: "No profile config with llm-pi-ai was found.",
 				officialRowHint: "Leaves a single account row on the Models page. The row is the only entry point for editing the official API key.",
-				feedbackLabel: "Hide \"Feedback\" in the account menu",
-				feedbackHint: "The item at the bottom right. Settings and Sign out stay as they are.",
+				groupAccount: "Account menu",
+				feedbackLabel: "Hide \"Feedback\"",
+				feedbackHint: "The Feedback item in the account menu opened from the avatar at the bottom right.",
+				signOutLabel: "Hide \"Sign out\"",
+				signOutHint: "The Sign out item in the same menu. With it hidden the menu keeps only Settings; turn it back on here when you need to sign out.",
 				shellLabel: "Application menu: add Reload Page and Restart App and Host above Quit",
 				shellHint: "Those two live in the Electron main process. The plugin flips the switch the shell already ships with in lib/main.js (idempotent, backed up, reversible). Restart the app once to see them.",
 				shellStateOn: "Shell patched",
@@ -121,6 +152,7 @@ window.__ModuleLoader__.load({
 			accountRow: true,
 			officialRow: true,
 			feedback: true,
+			signOut: true,
 		};
 		const prefs = { ...DEFAULTS };
 
@@ -155,6 +187,8 @@ window.__ModuleLoader__.load({
 		const OFFICIAL_ROW_LABELS = ["DeepSeek"];
 		/** 账号菜单里的意见反馈。 */
 		const FEEDBACK_LABELS = ["意见反馈", "Feedback"];
+		/** 账号菜单里的退出登录。 */
+		const SIGN_OUT_LABELS = ["退出登录", "退出帳號", "Sign out", "Log out", "Sign Out"];
 		/** 设置页 provider 行的类名后缀（Vite CSS Modules：_hash_rowName）。 */
 		const ROW_NAME_SELECTOR = '[class*="_rowName"]';
 		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
@@ -214,7 +248,7 @@ window.__ModuleLoader__.load({
 		function sweepSettingsRows(root) {
 			const names = root.matches(ROW_NAME_SELECTOR) ? [root, ...root.querySelectorAll(ROW_NAME_SELECTOR)] : [...root.querySelectorAll(ROW_NAME_SELECTOR)];
 			for (const name of names) {
-				const row = name.closest("li");
+				const row = name.closest('li, [class*="_rowCard"]');
 				if (row === null) continue;
 				const text = (name.textContent ?? "").trim();
 				if (matches(OFFICIAL_ROW_LABELS, text)) {
@@ -231,14 +265,21 @@ window.__ModuleLoader__.load({
 		/** 账号菜单：藏「意见反馈」，连带把只剩它一个的容器一起藏，别留孤零零的分隔线。 */
 		function sweepAccountMenu(root) {
 			const items = root.matches(MENU_ITEM_SELECTOR) ? [root, ...root.querySelectorAll(MENU_ITEM_SELECTOR)] : [...root.querySelectorAll(MENU_ITEM_SELECTOR)];
+			// 同一个菜单里两项各管各的：只认文字，认不到就跳过，不动别的菜单项。
+			const wanted = [
+				[FEEDBACK_LABELS, prefs.feedback === true],
+				[SIGN_OUT_LABELS, prefs.signOut === true],
+			];
 			for (const item of items) {
 				const text = (item.textContent ?? "").trim();
-				if (!matches(FEEDBACK_LABELS, text)) continue;
-				setHidden(item, prefs.feedback === true);
-				const holder = item.parentElement;
-				if (holder === null || holder === root) continue;
-				const only = holder.children.length === 1 && holder.getAttribute("role") === "presentation";
-				if (only) setHidden(holder, prefs.feedback === true);
+				for (const [labels, hide] of wanted) {
+					if (!matches(labels, text)) continue;
+					setHidden(item, hide);
+					const holder = item.parentElement;
+					if (holder === null || holder === root) continue;
+					const only = holder.children.length === 1 && holder.getAttribute("role") === "presentation";
+					if (only) setHidden(holder, hide);
+				}
 			}
 		}
 
@@ -286,12 +327,31 @@ window.__ModuleLoader__.load({
 		 * 「菜单晚一帧出现」，而不是「意见反馈闪一下」。
 		 * @param {Element} node - 刚挂上来的节点。
 		 */
+		/**
+		 * 这个菜单里有没有我们本来就要藏的东西？没有就别碰它。
+		 * 模型下拉框、命令面板之类跟本插件无关的菜单，一个像素都不该被我们改。
+		 * @param {Element} surface - 菜单壳。
+		 * @returns {boolean} 有要藏的项时为 true。
+		 */
+		function worthHolding(surface) {
+			if (prefs.accountRow === true && surface.querySelector('[class*="_accountStatus"]') !== null) return true;
+			if (prefs.feedback === true || prefs.signOut === true) {
+				for (const item of surface.querySelectorAll(MENU_ITEM_SELECTOR)) {
+					const text = (item.textContent ?? "").trim();
+					if (prefs.feedback === true && FEEDBACK_LABELS.includes(text)) return true;
+					if (prefs.signOut === true && SIGN_OUT_LABELS.includes(text)) return true;
+				}
+			}
+			return false;
+		}
+
 		function holdMenu(node) {
 			const surfaces = [];
 			if (node.matches('[role="menu"]')) surfaces.push(node);
 			for (const el of node.querySelectorAll('[role="menu"]')) surfaces.push(el);
 			for (const surface of surfaces) {
 				if (held.has(surface)) continue;
+				if (!worthHolding(surface)) continue;
 				held.add(surface);
 				surface.style.setProperty("visibility", "hidden");
 				// 双保险：万一 rAF 一直不跑（窗口被隐藏、渲染被节流），也别让它一直看不见。
@@ -299,7 +359,7 @@ window.__ModuleLoader__.load({
 					if (!held.has(surface)) return;
 					held.delete(surface);
 					surface.style.removeProperty("visibility");
-				}, 800);
+				}, 150);
 				release(surface);
 			}
 		}
@@ -373,6 +433,15 @@ window.__ModuleLoader__.load({
 				observer = null;
 			}
 			for (const element of document.querySelectorAll("[" + MARK + "]")) setHidden(element, false);
+			// 插件被停用/卸载：预藏属性、样式表、气泡层都撤掉，否则界面上还留着我们的痕迹。
+			const html = document.documentElement;
+			if (html !== null && html !== undefined) html.removeAttribute("data-dshmh-account-row");
+			const style = document.querySelector('style[data-plugin-css="' + ID + '"]');
+			if (style !== null) style.remove();
+			if (tipNode !== null) {
+				tipNode.remove();
+				tipNode = null;
+			}
 		}
 
 		// ── §6 样式 ───────────────────────────────────────────────────────────
@@ -393,6 +462,14 @@ window.__ModuleLoader__.load({
 			".dshmh-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,.12))}",
 			".dshmh-btn:disabled{opacity:.5;cursor:default}",
 			".dshmh-btn:focus-visible{outline:2px solid var(--dsw-focus-ring-color,#4d6bfe);outline-offset:2px}",
+			".dshmh-head{display:inline-flex;align-items:center;gap:6px}",
+			".dshmh-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid currentColor;font-size:10px;font-style:normal;line-height:1;color:#8b909a;cursor:help;position:relative;flex:none}",
+			".dshmh-info:hover,.dshmh-info:focus-visible{color:#e8eaed;outline:none}",
+			".dshmh-tip{position:fixed;z-index:2147483000;max-width:300px;width:max-content;padding:7px 9px;border-radius:8px;background:#16181d;border:1px solid rgba(255,255,255,.12);color:#e8eaed;font-size:12px;font-weight:400;line-height:1.55;white-space:normal;text-align:left;box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .1s ease}",
+			".dshmh-tip[data-open=\"1\"]{opacity:1;visibility:visible}",
+			".dshmh-actions{display:inline-flex;align-items:center;gap:8px}",
+			".dshmh-caption{display:block;margin:2px 0 4px;font-size:12px;line-height:1.5;color:#8b909a}",
+			".dshmh-select{appearance:none;min-width:132px;padding:6px 26px 6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:#202227;color:#e8eaed;font-size:13px;cursor:pointer}",
 			"html[data-dshmh-account-row=\"1\"] li[class*=\"_rowCard\"]:has([class*=\"_accountStatus\"]){display:none!important}",
 		].join("");
 
@@ -411,7 +488,8 @@ window.__ModuleLoader__.load({
 			tag.dataset.plugin = ID;
 			tag.dataset.pluginCss = ID;
 			tag.textContent = CSS;
-			document.head.appendChild(tag);
+			// 极端情况 factory 早于 <head> 成形：挂到 documentElement 上，样式照样生效。
+			(document.head ?? document.documentElement).appendChild(tag);
 		}
 
 		// ── §7 宿主路由：外壳补丁的开关与状态 ─────────────────────────────────
@@ -444,6 +522,85 @@ window.__ModuleLoader__.load({
 		 * @param {{ label: string, hint?: string, checked: boolean, onChange: (next: boolean) => void }} props - 行参数。
 		 * @returns {object} React 元素。
 		 */
+		/**
+		 * 标题右边的 ⓘ：功能说明放这里，鼠标悬浮或键盘聚焦时浮出来。
+		 * @param {{ text: string }} props - 说明文字。
+		 * @returns {object} React 元素。
+		 */
+		let tipNode = null;
+
+		/**
+		 * 气泡层：直接挂 body，position:fixed。
+		 * 挂在设置页容器里会被 overflow 裁掉，长文案只剩半句话。
+		 * @returns {HTMLElement} 气泡节点。
+		 */
+		function tipLayer() {
+			if (tipNode !== null && tipNode.isConnected === true) return tipNode;
+			tipNode = document.createElement("div");
+			tipNode.className = "dshmh-tip";
+			tipNode.dataset.open = "0";
+			document.body.appendChild(tipNode);
+			// 滚一下、改个窗口大小，位置就过期了，直接收起来。
+			window.addEventListener("scroll", hideTip, true);
+			window.addEventListener("resize", hideTip);
+			return tipNode;
+		}
+
+		/**
+		 * 在图标正上方显示说明；上方放不下就翻到下方。
+		 * @param {Element} target - 带 data-tip 的 ⓘ。
+		 * @returns {void}
+		 */
+		function showTip(target) {
+			const text = target.getAttribute("data-tip");
+			if (text === null || text.length === 0) return;
+			const tip = tipLayer();
+			tip.textContent = text;
+			tip.dataset.open = "1";
+			const box = target.getBoundingClientRect();
+			const width = tip.offsetWidth;
+			const height = tip.offsetHeight;
+			const limit = Math.max(8, window.innerWidth - width - 8);
+			const left = Math.min(Math.max(8, box.left + box.width / 2 - width / 2), limit);
+			let top = box.top - height - 8;
+			if (top < 8) top = box.bottom + 8;
+			tip.style.left = Math.round(left) + "px";
+			tip.style.top = Math.round(top) + "px";
+		}
+
+		function hideTip() {
+			if (tipNode === null) return;
+			tipNode.dataset.open = "0";
+		}
+
+		/**
+		 * 「（desktop、headless）」这种后缀，只列真的写了东西的 profile。
+		 * @param {Array<{ profile: string, changed: number }>} written - 宿主回报的写入结果。
+		 * @returns {string} 拼好的后缀，没有就空串。
+		 */
+		function changedProfiles(written) {
+			if (Array.isArray(written) !== true) return "";
+			const names = written.filter((entry) => entry !== null && typeof entry === "object" && entry.changed > 0).map((entry) => String(entry.profile));
+			return names.length === 0 ? "" : "（" + names.join("、") + "）";
+		}
+
+		function InfoIcon({ text }) {
+			return React.createElement("span", {
+				className: "dshmh-info",
+				role: "img",
+				tabIndex: 0,
+				"aria-label": text,
+				"data-tip": text,
+				onMouseEnter: (event) => showTip(event.currentTarget),
+				onMouseLeave: hideTip,
+				onFocus: (event) => showTip(event.currentTarget),
+				onBlur: hideTip,
+				onKeyDown: (event) => {
+					if (event.key === "Escape") hideTip();
+				},
+			}, "i");
+		}
+
 		function ToggleRow({ label, hint, checked, onChange }) {
 			const control = OfficialSwitch !== null
 				? React.createElement(OfficialSwitch, { checked, label, onChange: (next) => { onChange(next === true); } })
@@ -455,8 +612,9 @@ window.__ModuleLoader__.load({
 				});
 			return React.createElement("div", { className: "dshmh-row" },
 				React.createElement("span", { className: "dshmh-text" },
-					React.createElement("span", { className: "dshmh-label" }, label),
-					hint ? React.createElement("span", { className: "dshmh-hint" }, hint) : null),
+					React.createElement("span", { className: "dshmh-head" },
+						React.createElement("span", { className: "dshmh-label" }, label),
+						hint ? React.createElement(InfoIcon, { text: hint }) : null)),
 				React.createElement("span", { className: "dshmh-side" }, control));
 		}
 
@@ -469,6 +627,11 @@ window.__ModuleLoader__.load({
 			const [shell, setShell] = React.useState(null);
 			const [busy, setBusy] = React.useState(false);
 			const [note, setNote] = React.useState(null);
+			const [reasoning, setReasoning] = React.useState(null);
+			const [draftGlobal, setDraftGlobal] = React.useState(null);
+			const [draftOverrides, setDraftOverrides] = React.useState({});
+			const [reasoningBusy, setReasoningBusy] = React.useState(false);
+			const [reasoningNote, setReasoningNote] = React.useState(null);
 
 			React.useEffect(() => {
 				let alive = true;
@@ -486,6 +649,69 @@ window.__ModuleLoader__.load({
 				sweep();
 				setTick((n) => n + 1);
 			};
+
+			const aliveRef = React.useRef(true);
+			React.useEffect(() => () => {
+				aliveRef.current = false;
+				// 面板被关掉时鼠标还停着的 ⓘ 不会收到 mouseleave，气泡会留在屏幕上。
+				hideTip();
+			}, []);
+
+			/**
+			 * 读一次供应商现状。
+			 * @param {boolean} keepDraft - true 时不动正在编辑的下拉框（面板重新获得焦点、手动刷新用）。
+			 * @returns {void}
+			 */
+			const loadReasoning = (keepDraft) => {
+				fetch(REASONING_ROUTE, { credentials: "same-origin" }).then((response) => response.json()).then((state) => {
+					if (!aliveRef.current) return;
+					setReasoning(state);
+					if (keepDraft === true) return;
+					const savedGlobal = typeof state.global === "string" ? state.global : null;
+					const savedOverrides = state.overrides !== null && typeof state.overrides === "object" ? state.overrides : {};
+					if (savedGlobal !== null || Object.keys(savedOverrides).length > 0) {
+						setDraftGlobal(savedGlobal);
+						setDraftOverrides(savedOverrides);
+						return;
+					}
+					// 还没存过状态：按配置文件里现有的值反推 —— 众数当全局，其余当单独覆盖。
+					// 否则一进来是「全跟随全局」，点一下写入就把现有的 reasoning 全删了。
+					const known = Array.isArray(state.providers) ? state.providers : [];
+					const tally = new Map();
+					for (const provider of known) {
+						const level = provider.reasoning === null ? "(none)" : provider.reasoning;
+						tally.set(level, (tally.get(level) ?? 0) + 1);
+					}
+					let top = null;
+					let topCount = 0;
+					for (const [level, count] of tally) {
+						if (count > topCount) {
+							top = level;
+							topCount = count;
+						}
+					}
+					setDraftGlobal(top === "(none)" ? null : top);
+					const derived = {};
+					for (const provider of known) {
+						const level = provider.reasoning === null ? top : provider.reasoning;
+						if (level !== top) derived[provider.id] = provider.reasoning;
+					}
+					setDraftOverrides(derived);
+				}, () => {});
+			};
+
+			React.useEffect(() => {
+				loadReasoning(false);
+				// 供应商是用户自己在「设置 · 模型」里加的，加完回到这一页就该看到新行。
+				const onFocus = () => loadReasoning(true);
+				const onVisible = () => { if (document.visibilityState === "visible") loadReasoning(true); };
+				window.addEventListener("focus", onFocus);
+				document.addEventListener("visibilitychange", onVisible);
+				return () => {
+					window.removeEventListener("focus", onFocus);
+					document.removeEventListener("visibilitychange", onVisible);
+				};
+			}, []);
 
 			const runShell = (action) => {
 				setBusy(true);
@@ -525,23 +751,100 @@ window.__ModuleLoader__.load({
 			}));
 
 			const settingRows = [
-				["accountRow", "accountRowLabel", "accountRowHint"],
-				["officialRow", "officialRowLabel", "officialRowHint"],
+				["accountRow", "accountRowLabel", null],
+				["officialRow", "officialRowLabel", null],
 			].map(([key, label, hint]) => React.createElement(ToggleRow, {
 				key,
 				label: t(label),
-				hint: t(hint),
+				hint: hint === null ? undefined : t(hint),
 				checked: prefs[key] === true,
 				onChange: toggle(key),
 			}));
 
-			const menuRows = [React.createElement(ToggleRow, {
-				key: "feedback",
-				label: t("feedbackLabel"),
-				hint: t("feedbackHint"),
-				checked: prefs.feedback === true,
-				onChange: toggle("feedback"),
-			})];
+			// 账号菜单是另一处界面，单独成组，和「设置 · 模型」并列。
+			const accountRows = [
+				["feedback", "feedbackLabel", "feedbackHint"],
+				["signOut", "signOutLabel", "signOutHint"],
+			].map(([key, label, hint]) => React.createElement(ToggleRow, {
+				key,
+				label: t(label),
+				hint: hint === null ? undefined : t(hint),
+				checked: prefs[key] === true,
+				onChange: toggle(key),
+			}));
+
+			const levels = reasoning !== null && Array.isArray(reasoning.levels)
+				? reasoning.levels
+				: ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+			const providers = reasoning !== null && Array.isArray(reasoning.providers) ? reasoning.providers : [];
+			const levelOption = (value, label) => React.createElement("option", { key: value, value }, label);
+			const levelOptions = (extra) => [...extra, ...levels.map((level) => levelOption(level, level))];
+
+			const globalRow = React.createElement("div", { className: "dshmh-row" },
+				React.createElement("span", { className: "dshmh-text" },
+					React.createElement("span", { className: "dshmh-head" },
+						React.createElement("span", { className: "dshmh-label" }, t("reasoningGlobal")),
+						React.createElement(InfoIcon, { text: t("reasoningGlobalHint") }))),
+				React.createElement("span", { className: "dshmh-side" },
+					React.createElement("select", {
+						className: "dshmh-select",
+						value: draftGlobal === null ? "" : draftGlobal,
+						"aria-label": t("reasoningGlobal"),
+						onChange: (event) => setDraftGlobal(event.target.value === "" ? null : event.target.value),
+					}, levelOptions([levelOption("", t("reasoningNone"))]))));
+
+			const providerRows = providers.map((provider) => {
+				const current = Object.prototype.hasOwnProperty.call(draftOverrides, provider.id)
+					? (draftOverrides[provider.id] === null ? "none" : draftOverrides[provider.id])
+					: "";
+				return React.createElement("div", { className: "dshmh-row", key: provider.id },
+					React.createElement("span", { className: "dshmh-text" },
+						React.createElement("span", { className: "dshmh-head" },
+							React.createElement("span", { className: "dshmh-label" }, provider.displayName + " · " + provider.id))),
+					React.createElement("span", { className: "dshmh-side" },
+						React.createElement("select", {
+							className: "dshmh-select",
+							value: current,
+							"aria-label": provider.displayName,
+							onChange: (event) => {
+								const next = { ...draftOverrides };
+								const value = event.target.value;
+								if (value === "") delete next[provider.id];
+								else if (value === "none") next[provider.id] = null;
+								else next[provider.id] = value;
+								setDraftOverrides(next);
+							},
+						}, levelOptions([levelOption("", t("reasoningFollow")), levelOption("none", t("reasoningNone"))]))));
+			});
+
+			const applyReasoningNow = () => {
+				setReasoningBusy(true);
+				setReasoningNote(null);
+				const overrides = {};
+				for (const [id, value] of Object.entries(draftOverrides)) overrides[id] = value;
+				fetch(REASONING_ROUTE, {
+					method: "POST",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ global: draftGlobal, overrides }),
+				}).then((response) => response.json()).then((state) => {
+					setReasoning(state);
+					setDraftGlobal(typeof state.global === "string" ? state.global : null);
+					if (state.overrides !== null && typeof state.overrides === "object") setDraftOverrides(state.overrides);
+					setReasoningNote({
+						tone: state.changed > 0 ? "ok" : null,
+						text: state.changed > 0 ? t("reasoningApplied") + changedProfiles(state.written) : t("reasoningUnchanged"),
+					});
+				}, (error) => setReasoningNote({ tone: "error", text: t("reasoningFailed") + String((error && error.message) || error) })).then(() => setReasoningBusy(false));
+			};
+
+			const reasoningButton = OfficialButton !== null
+				? React.createElement(OfficialButton, { disabled: reasoningBusy, onClick: applyReasoningNow }, t("reasoningApply"))
+				: React.createElement("button", { type: "button", className: "dshmh-btn", disabled: reasoningBusy, onClick: applyReasoningNow }, t("reasoningApply"));
+
+			const reloadReasoningButton = OfficialButton !== null
+				? React.createElement(OfficialButton, { disabled: reasoningBusy, onClick: () => loadReasoning(true) }, t("reasoningReload"))
+				: React.createElement("button", { type: "button", className: "dshmh-btn", disabled: reasoningBusy, onClick: () => loadReasoning(true) }, t("reasoningReload"));
 
 			const buttons = [
 				boxAction(t("shellApply"), "enable", !shellFound || bulkDisabled(busy)),
@@ -569,8 +872,19 @@ window.__ModuleLoader__.load({
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupSettings")),
 				...settingRows,
 
-				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupMenus")),
-				...menuRows,
+				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupAccount")),
+				...accountRows,
+
+				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupReasoning")),
+				React.createElement("p", { className: "dshmh-caption" }, t("reasoningDesc")),
+				globalRow,
+				React.createElement("div", { className: "dshmh-row" },
+					React.createElement("span", { className: "dshmh-text" },
+						React.createElement("span", { className: "dshmh-label" }, t("reasoningProviders"))),
+					React.createElement("span", { className: "dshmh-side dshmh-actions" }, reasoningButton, reloadReasoningButton)),
+				...providerRows,
+				reasoningNote === null ? null : React.createElement("p", { className: "dshmh-hint", "data-tone": reasoningNote.tone ?? undefined, role: "status" }, reasoningNote.text),
+				providers.length > 0 ? null : React.createElement("p", { className: "dshmh-hint" }, t("reasoningEmpty")),
 
 				React.createElement("div", { className: "dshmh-row" },
 					React.createElement("span", { className: "dshmh-text" },
@@ -599,6 +913,59 @@ window.__ModuleLoader__.load({
 
 		// ── §9 插件入口 ───────────────────────────────────────────────────────
 		/**
+		 * 语言这东西有三种坑，一次兜干净：
+		 * 1. 正常：注册字典再 bind，跟着应用语言走；
+		 * 2. 应用语言是 zh-CN / zh-Hans 这类「语言 + 地区」：查表用的是 localeKey(active)
+		 *    的小写原样（zh-cn），只注册 `zh` 会沿着回退链掉到 en，界面整页变英文；
+		 * 3. 热重载：同一个 namespace 重复注册会抛 "already has locale"，抛了也得继续 bind，
+		 *    否则翻译函数退回「原样返回键名」，页面全是 sectionLabel 这种字。
+		 * @param {object | null | undefined} locale - ctx.get("locale")。
+		 * @param {{ zh: Record<string, string>, en: Record<string, string> }} dict - 两套文案。
+		 * @returns {(key: string) => string} 翻译函数。
+		 */
+		function bindLocale(locale, dict) {
+			const zh = dict.zh;
+			const en = dict.en;
+			if (locale === undefined || locale === null || typeof locale.bind !== "function") {
+				return (key) => zh[key] ?? key;
+			}
+			// 语言可能在会话中间被切走，所以每次翻译现读，不缓存 apply 那一刻的结果。
+			const preferZh = () => {
+				try {
+					const snapshot = typeof locale.getSnapshot === "function" ? locale.getSnapshot() : null;
+					const active = String((snapshot ?? {}).active ?? "");
+					return active.toLowerCase().startsWith("zh");
+				} catch (error) {
+					return true;
+				}
+			};
+			if (typeof locale.register === "function") {
+				// 单 locale 形式 register(ns, locale, dict)：方言标签各注册一份，解析到哪个都不会掉英文。
+				for (const [tag, words] of [["zh", zh], ["zh-CN", zh], ["zh-Hans", zh], ["en", en]]) {
+					try {
+						locale.register(LOCALE_NS, tag, words);
+					} catch (error) {
+						// 热重载时字典已在，重复注册会抛，这里没有要补救的东西。
+					}
+				}
+			}
+			let bound = null;
+			try {
+				bound = locale.bind(LOCALE_NS);
+			} catch (error) {
+				bound = null;
+			}
+			if (typeof bound !== "function") return (key) => (preferZh() ? zh[key] ?? key : en[key] ?? key);
+			return (key) => {
+				const value = bound(key);
+				// 查不到会原样返回键名；应用当前是中文时，宁可补中文，也别落成英文或键名。
+				if (value === key || (preferZh() && value === en[key])) return zh[key] ?? value;
+				return value;
+			};
+		}
+
+
+		/**
 		 * @param {object} ctx - 客户端上下文。
 		 */
 		function apply(ctx) {
@@ -606,19 +973,14 @@ window.__ModuleLoader__.load({
 			injectStyle();
 			syncPreHide();
 
-			const slots = ctx.get("slots");
-			const locale = ctx.get("locale");
-			if (locale !== undefined && locale !== null && typeof locale.register === "function") {
-				try {
-					locale.register(LOCALE_NS, DICT);
-					t = locale.bind(LOCALE_NS);
-				} catch (error) {
-					console.error("[dsh-menu-hidden] locale binding failed", error);
-				}
-			}
+			t = bindLocale(ctx.get("locale"), DICT);
 
 			startObserver();
 			ctx.effect(() => () => { stopObserver(); });
+
+			// 少一个服务就少一件事，别让整条客户端模块图跟着挂掉。
+			const slots = ctx.get("slots");
+			if (slots === undefined || slots === null || typeof slots.inject !== "function") return;
 
 			// 设置分区本身不受任何开关影响 —— 否则关掉就回不来了。
 			ctx.effect(() => slots.inject(SETTINGS_SECTION_SLOT, () => slots.register({

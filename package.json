@@ -1,24 +1,15 @@
 {
-  "name": "dsh-menu-hidden",
-  "version": "0.1.4",
-  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口、设置里多余的登录状态、账号菜单的意见反馈，并给应用菜单补上「刷新页面」「重启应用与 Host」。开关在设置页，改完立即生效。",
+  "name": "@local/dsh-menu-hidden",
+  "version": "0.2.4",
+  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口，隐掉设置里的那两行、账号菜单的「意见反馈」与「退出登录」，给应用菜单补上「刷新页面」「重启应用与 Host」，并统一写模型供应商的推理等级。开关存在本机，改完立即生效。Hide the duplicate DeepSeek account / official API entries, the two rows in Settings, and the Feedback / Sign out items of the account menu, add Reload / Restart to the application menu, and set reasoning levels for model providers. Toggles apply instantly.",
   "keywords": [
     "dsh",
-    "dsh-plugin",
     "deepseek-harness",
+    "plugin",
     "menu",
-    "hide"
+    "hide",
+    "reasoning"
   ],
-  "license": "MIT",
-  "author": "Biu-Bong",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Biu-Bong/dsh-menu-hidden.git"
-  },
-  "homepage": "https://github.com/Biu-Bong/dsh-menu-hidden#readme",
-  "bugs": {
-    "url": "https://github.com/Biu-Bong/dsh-menu-hidden/issues"
-  },
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -35,11 +26,11 @@
     "client.js",
     "cordis.patch.yml",
     "README.md",
-    "shell",
-    "test"
+    "reasoning.js"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "dsh": ">=0.2.0-rc.1"
   },
   "dsh": {
     "bundle": {
@@ -52,7 +43,5 @@
       ]
     }
   },
-  "scripts": {
-    "test:client": "node test/client-load.mjs client.js"
-  }
+  "license": "MIT"
 }

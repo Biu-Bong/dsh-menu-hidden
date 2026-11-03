@@ -45,9 +45,11 @@ function guessFile() {
   const explicit = argValue('--file')
   if (explicit !== undefined) return resolve(explicit)
   const candidates = [
-    'D:\\DeepSeekApp\\resources\\app\\lib\\main.js',
+    process.env.DSH_SHELL_MAIN_JS,
+    process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness', 'resources', 'app', 'lib', 'main.js'),
+    process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness', 'resources', 'app', 'lib', 'main.js'),
     join(process.cwd(), '..', 'lib', 'main.js'),
-  ]
+  ].filter((candidate) => typeof candidate === 'string' && candidate !== '')
   for (const candidate of candidates) {
     try {
       if (existsSync(candidate) && readFileSync(candidate, 'utf8').includes(SHELL_MARK)) return resolve(candidate)

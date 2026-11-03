@@ -18,13 +18,15 @@
  *   POST ?action=status    → 同 GET
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { copyFile, readFile, writeFile } from 'node:fs/promises'
+import { LEVELS, applyReasoning, readStatus } from './reasoning.js'
+import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 /** 路由挂在 Host 的 webServer 服务上；Cordis 里不声明就拿不到 ctx.webServer。 */
 export const inject = ['webServer']
 
 const ROUTE = '/dsh-menu-hidden/api/shell-menu'
+const REASONING_ROUTE = '/dsh-menu-hidden/api/reasoning'
 const BACKUP_SUFFIX = '.menuhidden.bak'
 /** 官方原样：development 为 false 时整段被丢掉。 */
 const MARK_ORIGINAL = '...development ? ['
@@ -40,7 +42,7 @@ const MARK_SHELL = 'applicationItems'
  * electron API，但 process.argv 里带着足够的信息：
  *   argv[0] = "<安装目录>\\DeepSeek Harness.exe"
  *   argv[2] = "<app>\\resources\\app\\dsh"（runtimeDir）
- * 两条路都试，再兜一层环境变量和一个本机绝对路径。
+ * 两条路都试，再兜一层环境变量和两处常见安装位置。
  * @returns {{ tried: string[], file: string | null }}
  */
 function resolveShellMain() {
@@ -58,10 +60,9 @@ function resolveShellMain() {
     if (!existsSync(join(argument, 'package.json'))) continue
     push(join(argument, '..', 'lib', 'main.js'))
   }
-  const localAppData = process.env.LOCALAPPDATA
-  if (typeof localAppData === 'string' && localAppData !== '') push(join(localAppData, 'Programs', 'DeepSeek Harness', 'resources', 'app', 'lib', 'main.js'))
-  for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']]) {
-    if (typeof base === 'string' && base !== '') push(join(base, 'DeepSeek Harness', 'resources', 'app', 'lib', 'main.js'))
+  // 兜底：Windows 上常见的两处安装位置。别写死某台机器的目录。
+  for (const root of [process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'), process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness')]) {
+    if (root) push(join(root, 'resources', 'app', 'lib', 'main.js'))
   }
   return { tried, file: tried.find((candidate) => looksLikeShellMain(candidate)) ?? null }
 }
@@ -87,7 +88,13 @@ function looksLikeShellMain(file) {
 function shellState() {
   const { tried, file } = resolveShellMain()
   if (file === null) return { found: false, file: null, patched: false, original: false, tried }
-  const text = readFileSync(file, 'utf8')
+  let text
+  try {
+    text = readFileSync(file, 'utf8')
+  } catch (error) {
+    // 更新过程里文件会被独占，读不到就当「没打补丁」，别把整条状态路由带成 500。
+    return { found: true, file, patched: false, original: false, tried, error: `读取失败：${describe(error)}` }
+  }
   return {
     found: true,
     file,
@@ -120,20 +127,45 @@ async function setShellPatch(enabled) {
   if (enabled) {
     if (hits !== 1) return { ...state, ok: false, error: `定位失败：main.js 里 "${MARK_ORIGINAL}" 命中 ${hits} 处（期望 1 处）。这个版本的外壳结构变了，补丁没有写入。` }
     try {
-      if (!existsSync(state.file + BACKUP_SUFFIX)) await copyFile(state.file, state.file + BACKUP_SUFFIX)
-      await writeFile(state.file, text.replace(MARK_ORIGINAL, MARK_PATCHED), 'utf8')
+      // 每次打补丁都刷新备份：DSH 更新会换掉整个 main.js，旧备份留着只会误导人。
+      await copyFile(state.file, state.file + BACKUP_SUFFIX)
+      await swap(state.file, text.replace(MARK_ORIGINAL, MARK_PATCHED))
     } catch (error) {
       return { ...state, ok: false, error: `写入失败：${describe(error)}` }
     }
-    return { ...shellState(), ok: true, changed: true }
+    const after = shellState()
+    if (after.patched !== true) return { ...after, ok: false, error: '写入后回读没看到补丁标记，外壳文件可能被别的进程改回去了。' }
+    return { ...after, ok: true, changed: true }
   }
   if (patchedHits !== 1) return { ...state, ok: false, error: `定位失败：main.js 里 "${MARK_PATCHED}" 命中 ${patchedHits} 处（期望 1 处）。` }
   try {
-    await writeFile(state.file, text.replace(MARK_PATCHED, MARK_ORIGINAL), 'utf8')
+    await swap(state.file, text.replace(MARK_PATCHED, MARK_ORIGINAL))
   } catch (error) {
     return { ...state, ok: false, error: `还原失败：${describe(error)}` }
   }
-  return { ...shellState(), ok: true, changed: true }
+  const reverted = shellState()
+  if (reverted.patched === true) return { ...reverted, ok: false, error: '还原后回读仍是补丁状态，外壳文件可能被别的进程改回去了。' }
+  return { ...reverted, ok: true, changed: true }
+}
+
+/**
+ * 原子换文件：先写同目录临时文件再改名。
+ *
+ * 直接 writeFile 到 main.js，写到一半崩了就是「外壳入口文件被截断」，
+ * 下次启动直接白屏；临时文件 + rename 在 Windows 上也是替换性的，最坏情况只是补丁没生效。
+ * @param {string} file - 目标文件。
+ * @param {string} content - 新内容。
+ * @returns {Promise<void>} 完成。
+ */
+async function swap(file, content) {
+  const staged = `${file}.menuhidden.tmp`
+  try {
+    await writeFile(staged, content, 'utf8')
+    await rename(staged, file)
+  } catch (error) {
+    await unlink(staged).catch(() => {})
+    throw error
+  }
 }
 
 /**
@@ -199,6 +231,37 @@ function platformFence(ctx, request) {
 }
 
 /**
+ * 读 JSON 请求体。
+ * @param {import('node:http').IncomingMessage} request - 请求。
+ * @param {number} [limit] - 字节上限。
+ * @returns {Promise<object>} 解析结果；坏数据返回空对象。
+ */
+function readJsonBody(request, limit = 64 * 1024) {
+  return new Promise((resolve) => {
+    let size = 0
+    const chunks = []
+    request.on('data', (chunk) => {
+      size += chunk.length
+      if (size > limit) {
+        request.destroy()
+        resolve({})
+        return
+      }
+      chunks.push(chunk)
+    })
+    request.on('end', () => {
+      try {
+        const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+        resolve(parsed !== null && typeof parsed === 'object' ? parsed : {})
+      } catch {
+        resolve({})
+      }
+    })
+    request.on('error', () => resolve({}))
+  })
+}
+
+/**
  * 插件入口。
  * @param {object} ctx - 宿主上下文。
  * @param {object} [config] - 预留配置。
@@ -255,4 +318,52 @@ export function apply(ctx, config = {}) {
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: ROUTE, handler }), 'dsh-menu-hidden: shell menu route')
   info(`route mounted: ${ROUTE}`)
+
+  const reasoningHandler = async (request, response) => {
+    const send = (status, body) => {
+      response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+      response.end(JSON.stringify(body))
+    }
+    if (!trustedRequest(request)) {
+      send(403, { ok: false, error: '只接受来自本机页面的请求' })
+      return
+    }
+    if (request.method === 'GET') {
+      const status = readStatus()
+      send(200, { ok: true, levels: LEVELS, ...status })
+      return
+    }
+    if (request.method !== 'POST') {
+      response.writeHead(405, { allow: 'GET, POST' })
+      response.end()
+      return
+    }
+    const refusal = platformFence(ctx, request)
+    if (refusal !== null) {
+      send(refusal, { ok: false, error: refusal === 401 ? '需要浏览器会话凭据：请从 DeepSeek Harness 的设置页操作。' : '被信任栅栏拒绝：Host / Origin 不符。' })
+      return
+    }
+    const body = await readJsonBody(request)
+    const global = typeof body.global === 'string' && LEVELS.includes(body.global) ? body.global : null
+    const overrides = {}
+    const incoming = body.overrides !== null && typeof body.overrides === 'object' ? body.overrides : {}
+    for (const [id, value] of Object.entries(incoming)) {
+      // JSON 里的 __proto__ 会改掉这个对象自己的原型，不挡就会悄悄污染状态文件。
+      if (id === '__proto__' || id === 'constructor' || id === 'prototype') continue
+      if (value === null) overrides[id] = null
+      else if (typeof value === 'string' && LEVELS.includes(value)) overrides[id] = value
+    }
+    let result
+    try {
+      result = applyReasoning(global, overrides)
+    } catch (error) {
+      send(500, { ok: false, error: `写配置失败：${String((error && error.message) || error)}` })
+      return
+    }
+    info(`reasoning applied: changed=${String(result.changed)} files=${String(result.files.length)}`)
+    send(200, { ok: true, levels: LEVELS, ...readStatus(), changed: result.changed, written: result.files })
+  }
+
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: REASONING_ROUTE, handler: reasoningHandler }), 'dsh-menu-hidden: reasoning route')
+  info(`route mounted: ${REASONING_ROUTE}`)
 }

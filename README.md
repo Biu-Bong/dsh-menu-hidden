@@ -1,12 +1,12 @@
 # dsh-menu-hidden · 菜单隐藏
 
-DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API 入口**收起来，顺手给应用菜单补上「刷新页面」「重启应用与 Host」。
+DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API 入口**收起来，账号菜单里用不上的两项也一起收，顺手给应用菜单补上「刷新页面」「重启应用与 Host」，再给模型供应商统一写推理等级。
 
-开关在 **设置 → 菜单隐藏**，翻一下立刻生效，不用刷新页面。
+开关在 **设置 → 菜单隐藏**：六个开关翻一下立刻生效，不用刷新页面；外壳那两项写入后重启一次应用。
 
 ## 效果
 
-示意图，按真实界面的文案、分组顺序和配色复刻。图里的第三方厂商与模型都是随手编的示例名字（OpenAI 的 GPT 6 Astra / GPT 6.1 Sol、Anthropic 的 Claude Opus 5.5、xAI 的 Grok 4.6 / 4.7），不代表任何真实账号。
+示意图，按真实界面的文案、分组顺序和配色复刻；「设置 → 菜单隐藏」那张是拿插件组件在 jsdom 里真渲染之后截的。图里的第三方厂商与模型都是随手编的示例名字（OpenAI 的 GPT 6 Astra / GPT 6.1 Sol、Anthropic 的 Claude Opus 5.5、xAI 的 Grok 4.6 / 4.7），不代表任何真实账号。
 
 **模型下拉框** 左：装之前（DeepSeek 账号 / DeepSeek 两组重复） 右：装之后（只剩 OpenAI / Anthropic / xAI）
 
@@ -16,7 +16,7 @@ DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API �
 
 <p><img src="docs/settings-models-before.png" width="430"> <img src="docs/settings-models-after.png" width="430"></p>
 
-**设置 → 菜单隐藏**（插件自己的页面，六个开关逐个对应上面六条）
+**设置 → 菜单隐藏**（插件自己的页面：模型选择框 / 设置 · 模型 / 账号菜单 / 推理等级，四组并列）
 
 <p><img src="docs/settings-plugin.png" width="620"></p>
 
@@ -71,12 +71,13 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 | 功能 | 桌面版 | `dsh web` |
 |---|---|---|
-| 1 / 2 / 3 / 4 / 6（模型下拉框、设置·模型、账号菜单那五条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
+| 1 / 2 / 3 / 4 / 6 / 7（模型下拉框、设置·模型、账号菜单那六条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
+| 推理等级（写 profile 的 reasoning） | ✅ 走本机路由写文件，热读生效 | ✅ 同左 |
 | 5（应用菜单「刷新页面 / 重启应用与 Host」） | ✅ 点「写入补丁」+ 重启应用 | — 浏览器里没有原生应用菜单 |
 
 为什么 web 端也能跑：客户端半用的是 Web UI 的 DOM 和 slot，`package.json` 里 `dsh.client.platform` 就是 `"web"`，桌面版加载的也是同一套 Web 前端；宿主半只要求 `webServer` 服务，`web` profile 里也有。第 5 条走的是 Electron 主进程的 `Menu.buildFromTemplate(...).popup()`，浏览器里没有承载物——这种环境下宿主半找不到 `lib/main.js`，设置页那一行会显示「没找到外壳文件」，点按钮只会回一句说明，不会动到任何文件。
 
-## 六条功能与实现
+## 七条功能与实现
 
 | # | 效果 | 实现方式 | 生效时机 |
 |---|---|---|---|
@@ -86,6 +87,7 @@ dsh plugin --profile web remove dsh-menu-hidden
 | 4 | 设置 · 模型里隐藏「DeepSeek」官方 API 那一行 | 客户端 DOM：隐藏该行 `<li>` | 立刻 |
 | 5 | 应用菜单「退出」上方加「刷新页面」「重启应用与 Host」 | 宿主半：给 `lib/main.js` 的 `applicationItems()` 打开官方留着的 `development` 门（幂等、留备份 `.menuhidden.bak`、可还原） | 改完**重启一次应用** |
 | 6 | 账号菜单里隐藏「意见反馈」 | 客户端 DOM：按文字认菜单项，藏掉（只剩它一个时连容器一起藏） | 立刻 |
+| 7 | 账号菜单里隐藏「退出登录」 | 同上，另一个开关各管一项；两项都藏时菜单只剩「设置」 | 立刻 |
 
 ## 为什么不会闪
 
@@ -93,11 +95,35 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 1. **CSS 预藏**：账号那一行挂 `data-dshmh-account-row="1"`，配 `li[class*="_rowCard"]:has([class*="_accountStatus"]){display:none}` —— 样式在第一次绘制前就生效，连 JS 都不用等。
 2. **同步扫描**：`MutationObserver` 的回调是微任务，跑在浏览器绘制之前。0.1.0 用 `setTimeout(...,120)` 合并扫描，等于把隐藏推到下一帧之后，那才是「先出现、再消失」。
-3. **按住菜单壳两帧**：React 偶尔在首帧之后再提交一次（焦点、动画回调），那一帧里节点是新的、还没被藏。所以菜单一挂上来先给它 `visibility:hidden`，扫两遍、两帧之后才放出来 —— 用户看到的是「菜单晚一帧出现」，不是「意见反馈闪一下」。另配 800ms 兜底定时器，rAF 被节流也不会让它一直看不见。
+3. **按住菜单壳两帧**：React 偶尔在首帧之后再提交一次（焦点、动画回调），那一帧里节点是新的、还没被藏。所以菜单一挂上来先给它 `visibility:hidden`，扫两遍、两帧之后才放出来 —— 用户看到的是「菜单晚一帧出现」，不是「意见反馈闪一下」。另配 150ms 兜底，rAF 被节流也不会让它一直看不见。
+   按住之前先过 `worthHolding()`：只有真会藏东西的菜单（含已登录徽标、或含那两项文字）才按住。模型选择框不在其中 —— 否则每次切模型都白等两帧。
 
 第 2、3 层都只扫 `record.target` 与 `addedNodes`（变动的子树），不会在流式输出时每条消息都全量 `querySelectorAll(document.body)`。
 
 `setHidden` 也不再是「看到标记就撒手」：React 重写 `style` 时会把 `display:none` 抹掉而标记还在，所以每次隐藏都补一次 `display`。
+
+## 推理等级
+
+有些供应商（尤其是中转站）没在后台配置里写 `reasoning`，前端就只能画一道杠，看不出这个模型能开几档。插件把这件事做成一次配置写入：
+
+- 全局默认一档，再按供应商覆盖；档位是 `off / minimal / low / medium / high / xhigh / max`，列表从宿主读，写死的那份只做兜底。
+- 写进 `$DSH_HOME/profiles/<名字>/cordis.patch.yml` 里 `llm-pi-ai` 那一段的 `models.<id>.reasoning`：只动这一行，别的行原样保留；选「不设置」就是把这行删掉。
+- 写盘走临时文件 + `rename`，写前留 `cordis.patch.yml.menuhidden.bak`；幂等，值一样时不动文件。
+- 生效时机：`llm-pi-ai` 的 `profiles()` 监听 `internal/config` 且带记忆化签名，改完下一条消息就按新档位走，**不用重启**。
+- 面板打开时按现有配置反推草稿（众数当全局、其余当覆盖），所以一进来点「写入配置」不会把原有档位全删。
+- 「按供应商单独设置」那几行在面板重新获得焦点、或窗口切回来时自动重读，新加的供应商不用重开设置页。
+
+## 语言：为什么有时候整页变英文
+
+DSH 查字典用的是应用当前语言的**原样小写标签**：渲染进程的 locale 是 `zh-CN`（启动日志里 `locale: zh-CN` 那一行），查表键就是 `zh-cn`，查不到才沿回退链落到 `en`。只注册 `zh` 一份，就会掉进英文——看着像「插件没翻译」，其实是键没命中。
+
+插件的做法（`client.js` 里的 `bindLocale()`）：
+
+- 用单 locale 形式 `register(ns, locale, dict)` 注册 `zh` / `zh-CN` / `zh-Hans` / `en` 四份，标签怎么解析都能命中；
+- 热重载时同一个 namespace 重复注册会抛 `already has locale`，抛了也照样继续 `bind`，不会退回「原样返回键名」；
+- 应用是中文而字典只回了英文（或回了键名）时，补中文兜底；语言切走时按调用时的快照重判，不缓存 apply 那一刻的结果。
+
+回归测试：`node test/locale.mjs client.js`。
 
 ## 为什么第 5 条要动外壳文件
 
@@ -131,9 +157,13 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 
 ## 设置页
 
-设置 → 菜单隐藏：六个开关 + 两个按钮。
+设置 → 菜单隐藏：四个并列标题 + 六个开关 + 两个按钮。
 
-- 前五个开关：模型选择框两处、设置·模型两处、账号菜单一处。开关存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
+- **模型选择框**：两开关，隐藏下拉框里的「DeepSeek 账号」分组 / 「DeepSeek」官方 API 分组。
+- **设置 · 模型**：两开关，隐藏设置页里的账号整行 / 官方 API 整行。
+- **账号菜单**：两开关，隐藏右下角头像菜单里的「意见反馈」/「退出登录」。
+- **推理等级**：全局默认 + 按供应商覆盖，写入 profile 配置；面板重新获得焦点会自动重读，也能点「重新读取」。
+- 六个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
 - 「应用菜单」那一行显示外壳状态（已写入 / 未改动 / 没找到文件）+ 写入 / 还原按钮。
 - 最后一行「现在刷新一次界面」，等同应用菜单里的「刷新页面」。
 
@@ -157,7 +187,8 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 package.json          # dsh.bundle.patch + dsh.client（platform: web）
 cordis.patch.yml      # 挂载宿主半（外壳补丁路由）
 index.js              # 宿主半：/dsh-menu-hidden/api/shell-menu，读写 main.js 补丁
-client.js             # 客户端半：设置页 + DOM 隐藏 + MutationObserver
+client.js             # 客户端半：设置页 + DOM 隐藏 + 语言 / MutationObserver
+reasoning.js          # 推理等级：读改 cordis.patch.yml 的 reasoning 行
 shell/patch-shell-menu.mjs  # 离线 CLI，同一对 MARK，同样幂等
 ```
 
@@ -195,7 +226,7 @@ dsh plugin --profile desktop remove dsh-menu-hidden
 dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.1.1
 ```
 
-两个测试：`node test/client-load.mjs client.js`（模块能不能加载）、`node test/client-dom.mjs client.js`（拿 jsdom 造一份真的结构化 DOM，验证六条里那五条 DOM 的命中与还原；需要先 `npm i --no-save jsdom`）。
+三个测试：`node test/client-load.mjs client.js`（模块能不能加载）、`node test/client-dom.mjs client.js`（拿 jsdom 造一份真的结构化 DOM，验证六条 DOM 的命中与还原，含「设置」不被误伤）、`node test/locale.mjs client.js`（模拟 DSH 的查表规则，验 `zh-CN` 出中文、`en` 出英文、重复注册后翻译函数仍在）。后两个需要先 `npm i --no-save jsdom`。
 
 回归测试也在仓库里：`node test/client-load.mjs client.js` 用一份假的 `window.__ModuleLoader__` 把 factory 跑一遍 —— 0.1.0 的写法会在这一步抛 `ReferenceError: module is not defined`，0.1.1 返回 `{ name, inject, apply }`。
 

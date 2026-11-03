@@ -70,6 +70,8 @@ const before = {
   officialRow: hidden('officialRow'),
   openaiRow: hidden('openaiRow'),
   feedback: window.document.querySelectorAll('[role="menuitem"]')[1].style.display === 'none',
+  signOut: window.document.querySelectorAll('[role="menuitem"]')[2].style.display === 'none',
+  settingsKept: window.document.querySelectorAll('[role="menuitem"]')[0].style.display !== 'none',
   slot: registered.map((r) => r.id).join(','),
 }
 
