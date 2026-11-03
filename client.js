@@ -170,9 +170,10 @@ window.__ModuleLoader__.load({
 		function setHidden(element, hide) {
 			if (element === null || element === undefined || element.nodeType !== 1) return;
 			if (hide) {
-				if (element.hasAttribute(MARK)) return;
-				element.setAttribute(MARK, element.getAttribute("style") ?? "");
-				element.style.setProperty("display", "none", "important");
+				// React 可能重写 style（动画帧、二次提交），MARK 还在但 display 被抹掉过，
+				// 所以每次都补一次，而不是看到 MARK 就撒手。
+				if (!element.hasAttribute(MARK)) element.setAttribute(MARK, element.getAttribute("style") ?? "");
+				if (element.style.getPropertyValue("display") !== "none") element.style.setProperty("display", "none", "important");
 				return;
 			}
 			if (!element.hasAttribute(MARK)) return;
@@ -272,18 +273,80 @@ window.__ModuleLoader__.load({
 		 * 早先版本用 120ms 定时器合并，等于把工作推到下一帧之后 —— 那正是闪烁的来源。
 		 * 只观察 childList：自己设 display 是 attributes 变动，观察了会自触死循环。
 		 */
+		/** 正在被按住（visibility:hidden）等扫干净的菜单。 */
+		const held = new Set();
+		/** 下一帧：优先 rAF，没有就退回定时器（jsdom 之类的环境）。 */
+		const nextFrame = typeof window.requestAnimationFrame === "function"
+			? (cb) => window.requestAnimationFrame(cb)
+			: (cb) => window.setTimeout(cb, 16);
+
+		/**
+		 * 菜单挂上来的那一瞬先按住不画：React 有时会在首帧之后再提交一次（焦点、动画回调），
+		 * 那一帧里节点是新的、还没被我们藏。按住两帧、扫两遍再放出来，用户看到的是
+		 * 「菜单晚一帧出现」，而不是「意见反馈闪一下」。
+		 * @param {Element} node - 刚挂上来的节点。
+		 */
+		function holdMenu(node) {
+			const surfaces = [];
+			if (node.matches('[role="menu"]')) surfaces.push(node);
+			for (const el of node.querySelectorAll('[role="menu"]')) surfaces.push(el);
+			for (const surface of surfaces) {
+				if (held.has(surface)) continue;
+				held.add(surface);
+				surface.style.setProperty("visibility", "hidden");
+				// 双保险：万一 rAF 一直不跑（窗口被隐藏、渲染被节流），也别让它一直看不见。
+				window.setTimeout(() => {
+					if (!held.has(surface)) return;
+					held.delete(surface);
+					surface.style.removeProperty("visibility");
+				}, 800);
+				release(surface);
+			}
+		}
+
+		/**
+		 * 两帧之后：再扫一遍，然后放出 visibility。
+		 * @param {Element} surface - 被按住的菜单。
+		 */
+		function release(surface) {
+			const step = () => {
+				nextFrame(() => {
+					nextFrame(() => {
+						try {
+							sweepRoot(surface);
+						} catch (error) {
+							console.error("[dsh-menu-hidden] sweep failed", error);
+						}
+						held.delete(surface);
+						surface.style.removeProperty("visibility");
+					});
+				});
+			};
+			step();
+		}
+
 		function onMutations(records) {
 			const seen = new Set();
 			for (const record of records) {
-				const candidates = [record.target, ...record.addedNodes];
-				for (const node of candidates) {
+				// 新挂上来的节点：先按住菜单壳、再扫。只对 addedNodes 做，
+				// record.target 上的追加（高亮、hover）不该让菜单重新藏两帧。
+				for (const node of record.addedNodes) {
 					if (node === null || node === undefined || node.nodeType !== 1 || seen.has(node)) continue;
 					seen.add(node);
 					try {
+						if (prefs.feedback === true || prefs.accountGroup === true || prefs.officialGroup === true) holdMenu(node);
 						sweepRoot(node);
 					} catch (error) {
 						console.error("[dsh-menu-hidden] sweep failed", error);
 					}
+				}
+				const target = record.target;
+				if (target === null || target === undefined || target.nodeType !== 1 || seen.has(target)) continue;
+				seen.add(target);
+				try {
+					sweepRoot(target);
+				} catch (error) {
+					console.error("[dsh-menu-hidden] sweep failed", error);
 				}
 			}
 		}
@@ -303,6 +366,8 @@ window.__ModuleLoader__.load({
 		}
 
 		function stopObserver() {
+			for (const surface of held) surface.style.removeProperty("visibility");
+			held.clear();
 			if (observer !== null) {
 				observer.disconnect();
 				observer = null;

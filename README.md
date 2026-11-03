@@ -89,9 +89,15 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 ## 为什么不会闪
 
-隐藏动作走 `MutationObserver`，回调里**同步**扫，而且只扫这次变动的那一小块子树（`record.target` 与 `addedNodes`）：MutationObserver 的回调是微任务，浏览器在一帧的微任务队列清空之后才绘制，所以节点挂进 DOM 的那一刻就被打上 `display:none`，肉眼看不到「先出现、再消失」。0.1.0 用 `setTimeout(..., 120)` 合并扫描，等于把工作推到下一帧之后，这就是闪烁的来源。
+隐藏分三层，从最早到最晚：
 
-账号那一行另外叠了一层保险：插件往 `document.documentElement` 挂 `data-dshmh-account-row="1"`，配一条 `li[class*="_rowCard"]:has([class*="_accountStatus"]){display:none!important}` 的 CSS —— 样式在第一次绘制前就生效，连 JS 都不用等。
+1. **CSS 预藏**：账号那一行挂 `data-dshmh-account-row="1"`，配 `li[class*="_rowCard"]:has([class*="_accountStatus"]){display:none}` —— 样式在第一次绘制前就生效，连 JS 都不用等。
+2. **同步扫描**：`MutationObserver` 的回调是微任务，跑在浏览器绘制之前。0.1.0 用 `setTimeout(...,120)` 合并扫描，等于把隐藏推到下一帧之后，那才是「先出现、再消失」。
+3. **按住菜单壳两帧**：React 偶尔在首帧之后再提交一次（焦点、动画回调），那一帧里节点是新的、还没被藏。所以菜单一挂上来先给它 `visibility:hidden`，扫两遍、两帧之后才放出来 —— 用户看到的是「菜单晚一帧出现」，不是「意见反馈闪一下」。另配 800ms 兜底定时器，rAF 被节流也不会让它一直看不见。
+
+第 2、3 层都只扫 `record.target` 与 `addedNodes`（变动的子树），不会在流式输出时每条消息都全量 `querySelectorAll(document.body)`。
+
+`setHidden` 也不再是「看到标记就撒手」：React 重写 `style` 时会把 `display:none` 抹掉而标记还在，所以每次隐藏都补一次 `display`。
 
 ## 为什么第 5 条要动外壳文件
 
