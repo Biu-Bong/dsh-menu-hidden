@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Menu Hiding">
+  <rect width="64" height="64" rx="14" fill="#1d1f24"/>
+  <g stroke="#e8eaef" stroke-width="4" stroke-linecap="round">
+    <line x1="16" y1="22" x2="48" y2="22"/>
+    <line x1="16" y1="32" x2="34" y2="32"/>
+    <line x1="16" y1="42" x2="42" y2="42"/>
+  </g>
+  <g stroke="#4ea1ff" stroke-width="4" stroke-linecap="round">
+    <line x1="36" y1="30" x2="52" y2="46"/>
+    <line x1="52" y1="30" x2="36" y2="46"/>
+  </g>
+</svg>

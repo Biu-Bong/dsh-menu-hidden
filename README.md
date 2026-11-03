@@ -67,6 +67,49 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 也可以把仓库地址交给 DSH 助手，一句话：`装一下 github:Biu-Bong/dsh-menu-hidden`。
 
+## 收进插件市场
+
+DSH 的「发现」标签页不连某个中心服务器，它读的是**你配置的索引源**（format 1 的 JSON），默认一个都没有。所以「上架」有两条互不冲突的路：
+
+### 一、自己发一份索引（立刻可用）
+
+仓库里带了一份：`market/index.json`，由 `tools/make-index.mjs` 生成 —— 读 `package.json` 的版本、`git log -1` 的提交号和发布时间，把 `source` 钉到那个提交上，再用 DSH 自带的 `parseMarketIndex` 过一遍，校验不过就不写盘。
+
+在 DSH 里加它：
+
+1. **插件 → 发现 → 添加索引源**
+2. 填 `https://cdn.jsdelivr.net/gh/Biu-Bong/dsh-menu-hidden@main/market/index.json`
+   （或 `https://raw.githubusercontent.com/Biu-Bong/dsh-menu-hidden/main/market/index.json`；两条都要能直连，索引源不允许重定向，单次读取 15 秒超时）
+3. 之后同一台机器上，`plugin_market` 智能体工具也能搜到这条。
+
+每次发版跑一次：
+
+```bash
+node tools/make-index.mjs          # 写 market/index.json
+node tools/make-index.mjs --check  # 只校验
+```
+
+### 二、进社区总目录（进 dsh-market 和两个站点）
+
+[dsh-market](https://github.com/dsh-market/dsh-market) 里的插件列表不是它自己维护的，它来自 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)。想出现在那里，去那边提 PR，加**一个文件** `data/plugins/Biu-Bong__dsh-menu-hidden.yml`：
+
+```yaml
+url: https://github.com/Biu-Bong/dsh-menu-hidden
+name: Biu-Bong/dsh-menu-hidden
+category: ui
+description:
+  en: Hides the duplicate DeepSeek account / official API entries, the Feedback and Sign out items of the account menu, and adds Reload / Restart to the application menu plus per-provider reasoning levels.
+  zh: 收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启，并统一写供应商的推理等级。
+```
+
+硬性条件（对方 CI 会查）：`package.json` 里有 `dsh.bundle`（本仓库有）、仓库里有真代码、仓库创建满 **1 天**、挂了 `dsh-plugin` topic、描述不夸大。合并后约一天内同步到 `awesome-dsh-plugin.com` 与 `dshmarket.com`，那时再把它当索引源加进来就是：
+
+```
+https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
+```
+
+本仓库的 `tools/submit-to-awesome.mjs` 会把上面那个 YAML 提交成 PR（幂等：已有 PR 就只报告）。
+
 ## 支持范围
 
 | 功能 | 桌面版 | `dsh web` |

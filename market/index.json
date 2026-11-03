@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "title": {
+    "zh": "小胖鱼 DSH 插件",
+    "en": "DSH plugins by Biu-Bong"
+  },
+  "description": {
+    "zh": "自己维护的 DSH 组合包索引。",
+    "en": "A hand-maintained index of DSH bundles."
+  },
+  "metadata": {
+    "categories": {
+      "interface": {
+        "title": {
+          "zh": "界面",
+          "en": "Interface"
+        }
+      }
+    },
+    "labels": {
+      "zh-only": {
+        "title": {
+          "zh": "中文文档",
+          "en": "Chinese docs"
+        }
+      },
+      "no-network": {
+        "title": {
+          "zh": "不改网络请求",
+          "en": "No network calls"
+        }
+      }
+    },
+    "sortKeys": {
+      "order": {
+        "title": {
+          "zh": "手工排序",
+          "en": "Curated order"
+        },
+        "order": "asc"
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "@local/dsh-menu-hidden",
+      "title": {
+        "zh": "菜单隐藏",
+        "en": "Menu Hiding"
+      },
+      "description": {
+        "zh": "收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口、设置里那两行、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启，并统一写供应商的推理等级。",
+        "en": "Hide the duplicate DeepSeek account / official API entries, the two Settings rows and the Feedback / Sign out items, add Reload / Restart to the application menu, and set reasoning levels for providers."
+      },
+      "icon": "icon.svg",
+      "author": "Biu-Bong",
+      "homepage": "https://github.com/Biu-Bong/dsh-menu-hidden#readme",
+      "repository": {
+        "url": "https://github.com/Biu-Bong/dsh-menu-hidden"
+      },
+      "metadata": {
+        "category": "interface",
+        "keywords": [
+          "menu",
+          "hide",
+          "deepseek",
+          "reasoning",
+          "settings",
+          "菜单",
+          "隐藏",
+          "推理等级"
+        ],
+        "labels": [
+          "zh-only",
+          "no-network"
+        ],
+        "sortKeys": {
+          "order": 10
+        }
+      },
+      "versions": [
+        {
+          "version": "0.2.4",
+          "publishTimestamp": 1793716924,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
+            "commit": "b69aec8d4a71964bd5f26b51ab1986e510489f73"
+          },
+          "engines": {
+            "dsh": ">=0.2.0-rc.1"
+          }
+        }
+      ]
+    }
+  ]
+}
