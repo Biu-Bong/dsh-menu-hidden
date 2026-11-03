@@ -82,10 +82,16 @@ dsh plugin --profile web remove dsh-menu-hidden
 |---|---|---|---|
 | 1 | 模型选择框里隐藏「DeepSeek 账号」分组 | 客户端 DOM：`section[data-menu-group]` 按标题文字整组隐藏 | 立刻 |
 | 2 | 模型选择框里隐藏「DeepSeek」（官方 API）分组 | 同上 | 立刻 |
-| 3 | 设置 · 模型里隐藏「DeepSeek 账号」后面的「已登录」 | 客户端 DOM：只隐藏 `[class*="_accountStatus"]` 徽标，行还在 | 立刻 |
+| 3 | 设置 · 模型里隐藏「DeepSeek 账号」**整行** | 客户端 DOM：按行名隐藏整个 `<li>`（编辑 / 删除一起走）；首屏另用 `li[class*="_rowCard"]:has([class*="_accountStatus"])` 的 CSS 预藏，绘制前就没了 | 立刻 |
 | 4 | 设置 · 模型里隐藏「DeepSeek」官方 API 那一行 | 客户端 DOM：隐藏该行 `<li>` | 立刻 |
 | 5 | 应用菜单「退出」上方加「刷新页面」「重启应用与 Host」 | 宿主半：给 `lib/main.js` 的 `applicationItems()` 打开官方留着的 `development` 门（幂等、留备份 `.menuhidden.bak`、可还原） | 改完**重启一次应用** |
 | 6 | 账号菜单里隐藏「意见反馈」 | 客户端 DOM：按文字认菜单项，藏掉（只剩它一个时连容器一起藏） | 立刻 |
+
+## 为什么不会闪
+
+隐藏动作走 `MutationObserver`，回调里**同步**扫一遍：MutationObserver 的回调是微任务，浏览器在一帧的微任务队列清空之后才绘制，所以节点挂进 DOM 的那一刻就被打上 `display:none`，肉眼看不到「先出现、再消失」。0.1.0 用 `setTimeout(..., 120)` 合并扫描，等于把工作推到下一帧之后，这就是闪烁的来源。
+
+账号那一行另外叠了一层保险：插件往 `document.documentElement` 挂 `data-dshmh-account-row="1"`，配一条 `li[class*="_rowCard"]:has([class*="_accountStatus"]){display:none!important}` 的 CSS —— 样式在第一次绘制前就生效，连 JS 都不用等。
 
 ## 为什么第 5 条要动外壳文件
 

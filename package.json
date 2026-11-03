@@ -1,6 +1,6 @@
 {
   "name": "dsh-menu-hidden",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口、设置里多余的登录状态、账号菜单的意见反馈，并给应用菜单补上「刷新页面」「重启应用与 Host」。开关在设置页，改完立即生效。",
   "keywords": [
     "dsh",

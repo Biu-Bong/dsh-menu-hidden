@@ -53,8 +53,8 @@ window.__ModuleLoader__.load({
 				accountGroupHint: "模型下拉框里那个带账号图标的分组，连它的模型一起藏。",
 				officialGroupLabel: "隐藏「DeepSeek」（官方 API）分组",
 				officialGroupHint: "模型下拉框里官方 API 那一组。两组都关掉，下拉框会只剩第三方模型。",
-				signedBadgeLabel: "隐藏「DeepSeek 账号」后面的「已登录」",
-				signedBadgeHint: "只藏那颗绿点和「已登录」，账号那一行本身还在。",
+				accountRowLabel: "隐藏「DeepSeek 账号」整行",
+				accountRowHint: "设置 · 模型里账号那一条整行消失，右边的编辑 / 删除一起走 —— 不是只藏「已登录」三个字。",
 				officialRowLabel: "隐藏「DeepSeek」官方 API 那一行",
 				officialRowHint: "设置 · 模型里只留一个 DeepSeek 账号，不再出现第二个 DeepSeek 行。整行藏掉后，改官方 API 的入口也一起没了。",
 				feedbackLabel: "隐藏账号菜单里的「意见反馈」",
@@ -87,8 +87,8 @@ window.__ModuleLoader__.load({
 				accountGroupHint: "The account group at the top of the model dropdown, models included.",
 				officialGroupLabel: "Hide the \"DeepSeek\" (official API) group",
 				officialGroupHint: "The official API group in the model dropdown. Hiding both leaves only third-party models.",
-				signedBadgeLabel: "Hide the \"Signed in\" badge on \"DeepSeek Account\"",
-				signedBadgeHint: "Only the dot and the label go; the account row stays.",
+				accountRowLabel: "Hide the whole \"DeepSeek Account\" row",
+				accountRowHint: "The entire row disappears from the Models page, buttons included — not just the Signed in text.",
 				officialRowLabel: "Hide the \"DeepSeek\" official API row",
 				officialRowHint: "Leaves a single account row on the Models page. The row is the only entry point for editing the official API key.",
 				feedbackLabel: "Hide \"Feedback\" in the account menu",
@@ -118,7 +118,7 @@ window.__ModuleLoader__.load({
 		const DEFAULTS = {
 			accountGroup: true,
 			officialGroup: true,
-			signedInBadge: true,
+			accountRow: true,
 			officialRow: true,
 			feedback: true,
 		};
@@ -217,10 +217,9 @@ window.__ModuleLoader__.load({
 					continue;
 				}
 				if (!matches(ACCOUNT_ROW_LABELS, text)) continue;
-				setHidden(row, false);
-				for (const badge of row.querySelectorAll(ACCOUNT_BADGE_SELECTOR)) {
-					setHidden(badge, prefs.signedInBadge === true);
-				}
+				setHidden(row, prefs.accountRow === true);
+				// 旧版只藏过徽标，升级上来时把残留的 display:none 还回去。
+				for (const badge of row.querySelectorAll(ACCOUNT_BADGE_SELECTOR)) setHidden(badge, false);
 			}
 		}
 
@@ -253,22 +252,19 @@ window.__ModuleLoader__.load({
 
 		// ── §5 观察器 ─────────────────────────────────────────────────────────
 		let observer = null;
-		let pending = 0;
 
 		/**
-		 * 合并成一帧后再扫：菜单是点开才挂到 body 上的（portal），设置页是切过去才渲染的，
-		 * 一律走 childList。attributes 不观察 —— 否则我们自己设 display 会触发自己形成死循环。
+		 * 回调里同步扫，不排队。MutationObserver 的回调是微任务，跑在浏览器绘制之前，
+		 * 所以节点一挂上就被藏掉，不会出现「先画出来、再消失」的那一下。
+		 * 早先版本用 120ms 定时器合并，等于把工作推到下一帧之后 —— 那正是闪烁的来源。
+		 * 只观察 childList：自己设 display 是 attributes 变动，观察了会自触死循环。
 		 */
-		function scheduleSweep() {
-			if (pending !== 0) return;
-			pending = window.setTimeout(() => {
-				pending = 0;
-				try {
-					sweep();
-				} catch (error) {
-					console.error("[dsh-menu-hidden] sweep failed", error);
-				}
-			}, 120);
+		function onMutations() {
+			try {
+				sweep();
+			} catch (error) {
+				console.error("[dsh-menu-hidden] sweep failed", error);
+			}
 		}
 
 		function startObserver() {
@@ -280,7 +276,7 @@ window.__ModuleLoader__.load({
 				document.addEventListener("DOMContentLoaded", () => { startObserver(); }, { once: true });
 				return;
 			}
-			observer = new MutationObserver(scheduleSweep);
+			observer = new MutationObserver(onMutations);
 			observer.observe(root, { childList: true, subtree: true });
 			sweep();
 		}
@@ -289,10 +285,6 @@ window.__ModuleLoader__.load({
 			if (observer !== null) {
 				observer.disconnect();
 				observer = null;
-			}
-			if (pending !== 0) {
-				window.clearTimeout(pending);
-				pending = 0;
 			}
 			for (const element of document.querySelectorAll("[" + MARK + "]")) setHidden(element, false);
 		}
@@ -315,7 +307,16 @@ window.__ModuleLoader__.load({
 			".dshmh-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2,rgba(127,127,127,.12))}",
 			".dshmh-btn:disabled{opacity:.5;cursor:default}",
 			".dshmh-btn:focus-visible{outline:2px solid var(--dsw-focus-ring-color,#4d6bfe);outline-offset:2px}",
+			"html[data-dshmh-account-row=\"1\"] li[class*=\"_rowCard\"]:has([class*=\"_accountStatus\"]){display:none!important}",
 		].join("");
+
+		/** 账号行首屏预藏：CSS 在第一次绘制前就生效，不用等 JS 跑。 */
+		function syncPreHide() {
+			const html = document.documentElement;
+			if (html === null || html === undefined) return;
+			if (prefs.accountRow === true) html.setAttribute("data-dshmh-account-row", "1");
+			else html.removeAttribute("data-dshmh-account-row");
+		}
 
 		function injectStyle() {
 			if (typeof document === "undefined") return;
@@ -395,6 +396,7 @@ window.__ModuleLoader__.load({
 			const toggle = (key) => (next) => {
 				prefs[key] = next === true;
 				savePrefs();
+				syncPreHide();
 				sweep();
 				setTick((n) => n + 1);
 			};
@@ -437,7 +439,7 @@ window.__ModuleLoader__.load({
 			}));
 
 			const settingRows = [
-				["signedInBadge", "signedBadgeLabel", "signedBadgeHint"],
+				["accountRow", "accountRowLabel", "accountRowHint"],
 				["officialRow", "officialRowLabel", "officialRowHint"],
 			].map(([key, label, hint]) => React.createElement(ToggleRow, {
 				key,
@@ -516,6 +518,7 @@ window.__ModuleLoader__.load({
 		function apply(ctx) {
 			loadPrefs();
 			injectStyle();
+			syncPreHide();
 
 			const slots = ctx.get("slots");
 			const locale = ctx.get("locale");
