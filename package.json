@@ -1,0 +1,54 @@
+{
+  "name": "dsh-menu-hidden",
+  "version": "0.1.0",
+  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口、设置里多余的登录状态、账号菜单的意见反馈，并给应用菜单补上「刷新页面」「重启应用与 Host」。开关在设置页，改完立即生效。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "menu",
+    "hide"
+  ],
+  "license": "MIT",
+  "author": "Biu-Bong",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Biu-Bong/dsh-menu-hidden.git"
+  },
+  "homepage": "https://github.com/Biu-Bong/dsh-menu-hidden#readme",
+  "bugs": {
+    "url": "https://github.com/Biu-Bong/dsh-menu-hidden/issues"
+  },
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    },
+    "./client": {
+      "default": "./client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "shell"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}

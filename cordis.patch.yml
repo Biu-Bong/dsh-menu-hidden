@@ -1,0 +1,10 @@
+# dsh-menu-hidden bundle patch —— 挂载宿主半（外壳 menu 补丁的那条路由）。
+#
+# client 半不用在这里登记：它由 package.json 的 dsh.client 清单
+# （platform: web、./client 导出）被 client-modules 扫描发现。
+# 不要在 profile 自己的 cordis.patch.yml 里再 insert 同一个 id，
+# 否则 boot 会因为重复的 loader entry id 失败。
+- insert:
+    - id: dsh-menu-hidden
+      name: "dsh-menu-hidden"
+      config: {}
