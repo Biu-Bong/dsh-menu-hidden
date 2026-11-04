@@ -9,6 +9,12 @@ const html = `<!doctype html><html><body>
   <li class="h1_rowCard" id="openaiRow"><div class="h1_rowHead"><span class="h1_rowIdentity"><span class="h1_rowName">OpenAI</span></span></div></li>
 </ul>
 <div id="menuHost"></div>
+<nav class="n1_nav" aria-label="全局面板" id="sideNav">
+  <button type="button" class="n1_panelRow" id="navPlugins" aria-label="插件"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">插件</span></button>
+  <button type="button" class="n1_panelRow" id="navSchedules" aria-label="定时任务"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">定时任务</span></button>
+  <button type="button" class="n1_panelRow" id="navArchive" aria-label="归档会话"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">归档会话</span></button>
+  <button type="button" class="n1_panelRow" id="navMore" aria-label="更多" aria-haspopup="menu"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">更多</span></button>
+</nav>
 <fieldset class="s1_models" id="subagentList">
   <legend>Agent 可选择的模型</legend>
   <div class="s1_modelGroup" id="sgAccount"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model"><input type="checkbox" checked><span class="s1_modelName">DeepSeek-V4-Pro</span><span class="s1_route">DeepSeek Account · deepseek-account/deepseek-v4-pro</span></label></div>
@@ -82,6 +88,10 @@ const before = {
   subagentAccount: hidden('sgAccount'),
   subagentOfficial: hidden('sgOfficial'),
   subagentOpenai: hidden('sgOpenai'),
+  navPlugins: hidden('navPlugins'),
+  navSchedules: hidden('navSchedules'),
+  navMore: hidden('navMore'),
+  navArchive: hidden('navArchive'),
 }
 
 // 再往菜单里追加一组，验证观察器同步生效（模拟点开菜单）

@@ -75,6 +75,13 @@ window.__ModuleLoader__.load({
 				reasoningFailed: "写入失败：",
 				reasoningEmpty: "没找到带 llm-pi-ai 的 profile 配置。",
 				groupAccount: "账号菜单",
+				groupSidebar: "侧边栏",
+				sidebarPluginsLabel: "隐藏侧边栏的「插件」",
+				sidebarPluginsHint: "左栏那排图标里的插件入口。藏掉之后还能从「更多」或命令面板进。",
+				sidebarSchedulesLabel: "隐藏侧边栏的「定时任务」",
+				sidebarSchedulesHint: "同一排图标里的定时任务入口。",
+				sidebarMoreLabel: "隐藏侧边栏的「更多」",
+				sidebarMoreHint: "那排图标最后的「更多」，点开是没固定在侧栏的面板。藏掉之后它们只能靠命令面板进。",
 				feedbackLabel: "隐藏「意见反馈」",
 				feedbackHint: "右下角头像点开的那份菜单里的「意见反馈」。",
 				signOutLabel: "隐藏「退出登录」",
@@ -128,6 +135,13 @@ window.__ModuleLoader__.load({
 				reasoningEmpty: "No profile config with llm-pi-ai was found.",
 				officialRowHint: "Leaves a single account row on the Models page. The row is the only entry point for editing the official API key.",
 				groupAccount: "Account menu",
+				groupSidebar: "Sidebar",
+				sidebarPluginsLabel: "Hide \"Plugins\" in the sidebar",
+				sidebarPluginsHint: "The Plugins entry in the left rail. It stays reachable from More or the command palette.",
+				sidebarSchedulesLabel: "Hide \"Scheduled tasks\" in the sidebar",
+				sidebarSchedulesHint: "The Scheduled tasks entry in the same rail.",
+				sidebarMoreLabel: "Hide \"More\" in the sidebar",
+				sidebarMoreHint: "The More launcher at the end of the rail; the panels it opens stay reachable from the command palette.",
 				feedbackLabel: "Hide \"Feedback\"",
 				feedbackHint: "The Feedback item in the account menu opened from the avatar at the bottom right.",
 				signOutLabel: "Hide \"Sign out\"",
@@ -157,6 +171,9 @@ window.__ModuleLoader__.load({
 		const DEFAULTS = {
 			accountGroup: true,
 			officialGroup: true,
+			sidebarPlugins: true,
+			sidebarSchedules: true,
+			sidebarMore: true,
 			subagentAccount: true,
 			subagentOfficial: true,
 			accountRow: true,
@@ -210,6 +227,11 @@ window.__ModuleLoader__.load({
 		/** 子智能体设置页的供应商分组（Vite CSS Modules：_hash_modelGroup / _hash_providerName）。 */
 		const SUBAGENT_GROUP_SELECTOR = '[class*="_modelGroup"]';
 		/** 子智能体列表每行的副标题：「DeepSeek · deepseek-official/deepseek-flash」，provider id 比显示名可靠。 */
+		/** 侧边栏那排面板图标：button[class*="_panelRow"]，名字在 aria-label 上（收起时只有它）。 */
+		const SIDEBAR_ROW_SELECTOR = 'button[class*="_panelRow"]';
+		const SIDEBAR_PLUGINS_LABELS = ["插件", "Plugins"];
+		const SIDEBAR_SCHEDULES_LABELS = ["定时任务", "Scheduled tasks", "Schedules"];
+		const SIDEBAR_MORE_LABELS = ["更多", "More"];
 		const SUBAGENT_ROUTE_SELECTOR = '[class*="_route"]';
 		const SUBAGENT_PROVIDER_SELECTOR = '[class*="_providerName"]';
 
@@ -280,6 +302,17 @@ window.__ModuleLoader__.load({
 			}
 		}
 
+		/** 侧边栏面板图标：按 aria-label 认（收起时没有文字，只剩它）。 */
+		function sweepSidebarNav(root) {
+			const rows = root.matches(SIDEBAR_ROW_SELECTOR) ? [root, ...root.querySelectorAll(SIDEBAR_ROW_SELECTOR)] : [...root.querySelectorAll(SIDEBAR_ROW_SELECTOR)];
+			for (const row of rows) {
+				const text = (row.getAttribute("aria-label") ?? row.textContent ?? "").trim();
+				if (matches(SIDEBAR_PLUGINS_LABELS, text)) setHidden(row, prefs.sidebarPlugins === true);
+				else if (matches(SIDEBAR_SCHEDULES_LABELS, text)) setHidden(row, prefs.sidebarSchedules === true);
+				else if (matches(SIDEBAR_MORE_LABELS, text)) setHidden(row, prefs.sidebarMore === true);
+			}
+		}
+
 		/**
 		 * 子智能体设置页：整组藏。
 		 * 先看行里的 route（provider id 稳定：deepseek-official / deepseek-account），
@@ -343,7 +376,7 @@ window.__ModuleLoader__.load({
 		function sweepRoot(root) {
 			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
-			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu]) {
+			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav]) {
 				try {
 					step(root);
 				} catch (error) {
@@ -815,6 +848,19 @@ window.__ModuleLoader__.load({
 				onChange: toggle(key),
 			}));
 
+			// 侧边栏是另一处界面，单独成组。
+			const sidebarRows = [
+				["sidebarPlugins", "sidebarPluginsLabel", "sidebarPluginsHint"],
+				["sidebarSchedules", "sidebarSchedulesLabel", "sidebarSchedulesHint"],
+				["sidebarMore", "sidebarMoreLabel", "sidebarMoreHint"],
+			].map(([key, label, hint]) => React.createElement(ToggleRow, {
+				key,
+				label: t(label),
+				hint: t(hint),
+				checked: prefs[key] === true,
+				onChange: toggle(key),
+			}));
+
 			// 账号菜单是另一处界面，单独成组，和「设置 · 模型」并列。
 			const accountRows = [
 				["feedback", "feedbackLabel", "feedbackHint"],
@@ -925,6 +971,9 @@ window.__ModuleLoader__.load({
 
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupSettings")),
 				...settingRows,
+
+				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupSidebar")),
+				...sidebarRows,
 
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupAccount")),
 				...accountRows,
