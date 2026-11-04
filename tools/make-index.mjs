@@ -100,8 +100,7 @@ for (const candidate of validatorCandidates) {
   }
 }
 if (validator === undefined) {
-  console.error('没找到 @deepseek-ai/dsh-plugin-market-index，跳过校验')
-  process.exit(1)
+  console.error('没找到 @deepseek-ai/dsh-plugin-market-index，本次跳过 DSH 自带校验（索引仍会写出）')
 }
 
 const parsed = validator.parseMarketIndex(index, 'https://example.invalid/market/index.json')
