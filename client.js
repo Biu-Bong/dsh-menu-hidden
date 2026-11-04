@@ -46,7 +46,7 @@ window.__ModuleLoader__.load({
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.14";
+		const VERSION = "0.2.15";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -604,7 +604,7 @@ window.__ModuleLoader__.load({
 			".dshmh-pill{display:inline-flex;align-items:center;gap:5px;height:32px;box-sizing:border-box;padding:0 10px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
 			".dshmh-pill:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07))}",
 			".dshmh-pill:disabled{opacity:.6;cursor:default}",
-			"@media (max-width:560px){.dshmh-headrow{gap:8px}.dshmh-verstate{display:none}.dshmh-pill{padding:0 8px;font-size:12px}}",
+			"@media (max-width:560px){.dshmh-headrow{gap:8px}.dshmh-pill{padding:0 8px;font-size:12px}}",
 			".dshmh-icon{width:15px;height:15px;flex:none}",
 			".dshmh-update{display:flex;align-items:center;gap:8px;color:#ff8a8a}",
 			".dshmh-error{color:#ff8a8a}",
@@ -618,7 +618,6 @@ window.__ModuleLoader__.load({
 			".dshmh-find{color:#e0a33e;font-weight:600}",
 			".dshmh-ok{color:#3fb950}",
 			".dshmh-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-			".dshmh-verstate{color:var(--dsw-alias-label-tertiary,#7b828d);font-size:15px;line-height:1;transform:translateY(1px)}",
 			".dshmh-updatebtn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;cursor:pointer}",
 			".dshmh-mask{position:fixed;inset:0;z-index:2147483200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px}",
 			".dshmh-dialog{box-sizing:border-box;width:min(560px,100%);max-height:calc(100vh - 48px);overflow:auto;padding:22px 24px 18px;border-radius:16px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:var(--dsw-alias-bg-layer-1,#1b1d22);box-shadow:0 24px 64px rgba(0,0,0,.5)}",
@@ -823,6 +822,9 @@ window.__ModuleLoader__.load({
 		const REFRESH_ICON = React.createElement("svg", strokeProps,
 			React.createElement("path", { d: "M21 12a9 9 0 1 1-3-6.7" }),
 			React.createElement("path", { d: "M21 3v6h-6" }));
+
+		const CHECK_ICON = React.createElement("svg", strokeProps,
+			React.createElement("path", { d: "M20 6 9 17l-5-5" }));
 
 		/**
 		 * 打开外部链接：Electron 里 window.open 会被 setWindowOpenHandler 拦掉，
@@ -1190,13 +1192,14 @@ window.__ModuleLoader__.load({
 				return React.createElement("button", { key: action, type: "button", className: "dshmh-btn", disabled, onClick: () => { runShell(action); } }, label);
 			}
 
+			const isLatest = update !== null && update.status === "done" && update.hasUpdate !== true;
+
 			return React.createElement("div", { className: "dshmh-page" },
 				renderUpdateDialog(),
 				React.createElement("div", { className: "dshmh-headrow" },
 					React.createElement("h2", { className: "dshmh-title" },
 					React.createElement("span", { className: "dshmh-name" }, t("title")),
 						React.createElement("span", { className: "dshmh-ver" }, "v" + (update !== null && typeof update.current === "string" && update.current !== "" ? update.current : VERSION)),
-						update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("span", { className: "dshmh-ver dshmh-verstate" }, t("updateLatest")) : null,
 					),
 					React.createElement("div", { className: "dshmh-pills" },
 						React.createElement("a", {
@@ -1223,8 +1226,8 @@ window.__ModuleLoader__.load({
 								if (update !== null && update.hasUpdate === true) { setUpdateDialog(true); return; }
 								checkUpdate(true);
 							},
-						}, REFRESH_ICON,
-						update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck"),
+						}, isLatest === true ? CHECK_ICON : REFRESH_ICON,
+						isLatest === true ? t("updateLatest") : update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck"),
 						update !== null && update.hasUpdate === true ? React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }) : null),
 					),
 				),
