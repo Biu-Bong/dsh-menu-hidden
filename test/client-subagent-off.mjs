@@ -6,8 +6,8 @@ const file = process.argv[2]
 const html = `<!doctype html><html><body>
 <fieldset class="s1_models">
   <legend>Agent 可选择的模型</legend>
-  <div class="s1_modelGroup" id="sgAccount" style="border-top:1px solid red"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model">DeepSeek-V4-Pro</label></div>
-  <div class="s1_modelGroup" id="sgOfficial"><div class="s1_providerName">DeepSeek 官方 API</div><label class="s1_model">DeepSeek-V4.1-Flash</label></div>
+  <div class="s1_modelGroup" id="sgAccount" style="border-top:1px solid red"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model"><span class="s1_route">DeepSeek Account · deepseek-account/deepseek-v4-pro</span></label></div>
+  <div class="s1_modelGroup" id="sgOfficial"><div class="s1_providerName">DeepSeek</div><label class="s1_model"><span class="s1_route">DeepSeek · deepseek-official/deepseek-flash</span></label></div>
 </fieldset>
 </body></html>`
 

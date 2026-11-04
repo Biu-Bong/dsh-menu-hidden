@@ -11,9 +11,9 @@ const html = `<!doctype html><html><body>
 <div id="menuHost"></div>
 <fieldset class="s1_models" id="subagentList">
   <legend>Agent 可选择的模型</legend>
-  <div class="s1_modelGroup" id="sgAccount"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model"><input type="checkbox" checked>DeepSeek-V4-Pro</label></div>
-  <div class="s1_modelGroup" id="sgOfficial"><div class="s1_providerName">DeepSeek 官方 API</div><label class="s1_model"><input type="checkbox">DeepSeek-V4.1-Flash</label></div>
-  <div class="s1_modelGroup" id="sgOpenai"><div class="s1_providerName">OpenAI</div><label class="s1_model"><input type="checkbox">GPT 6 Astra</label></div>
+  <div class="s1_modelGroup" id="sgAccount"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model"><input type="checkbox" checked><span class="s1_modelName">DeepSeek-V4-Pro</span><span class="s1_route">DeepSeek Account · deepseek-account/deepseek-v4-pro</span></label></div>
+  <div class="s1_modelGroup" id="sgOfficial"><div class="s1_providerName">DeepSeek</div><label class="s1_model"><input type="checkbox"><span class="s1_modelName">DeepSeek-V4.1-Flash</span><span class="s1_route">DeepSeek · deepseek-official/deepseek-flash</span></label></div>
+  <div class="s1_modelGroup" id="sgOpenai"><div class="s1_providerName">OpenAI</div><label class="s1_model"><input type="checkbox"><span class="s1_modelName">GPT 6 Astra</span><span class="s1_route">OpenAI · openai/gpt-6-astra</span></label></div>
 </fieldset>
 <div id="acctMenu" role="menu" data-menu-material>
   <div role="presentation"><button role="menuitem">设置</button></div>

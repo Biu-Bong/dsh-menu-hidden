@@ -131,7 +131,7 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 | 5 | 应用菜单「退出」上方加「刷新页面」「重启应用与 Host」 | 宿主半：给 `lib/main.js` 的 `applicationItems()` 打开官方留着的 `development` 门（幂等、留备份 `.menuhidden.bak`、可还原） | 改完**重启一次应用** |
 | 6 | 账号菜单里隐藏「意见反馈」 | 客户端 DOM：按文字认菜单项，藏掉（只剩它一个时连容器一起藏） | 立刻 |
 | 7 | 账号菜单里隐藏「退出登录」 | 同上，另一个开关各管一项；两项都藏时菜单只剩「设置」 | 立刻 |
-| 8 | 子智能体的模型选择里隐藏「DeepSeek Account」「DeepSeek 官方 API」两组 | 客户端 DOM：`[class*="_providerName"]` 认供应商名，藏掉外层 `[class*="_modelGroup"]`（两个开关，都在「模型选择框」组里） | 立刻 |
+| 8 | 子智能体的模型选择里隐藏「DeepSeek Account」「DeepSeek 官方 API」两组 | 客户端 DOM：按每行副标题里的 provider id（`deepseek-official` / `deepseek-account`）认组，藏掉外层 `[class*="_modelGroup"]`；拿不到 id 才退回标题文字（两个开关，都在「模型选择框」组里） | 立刻 |
 
 ## 为什么不会闪
 
@@ -222,7 +222,7 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 | 设置·模型 行名 | `[class*="_rowName"]`（Vite CSS Modules 的 `_hash_rowName`） | 用后缀，换版本不失效 |
 | 已登录徽标 | `[class*="_accountStatus"]` | 同上 |
 | 账号菜单项 | `[role="menuitem"]` 且文字是 `意见反馈` / `Feedback` | 官方菜单没有 data 属性，只能按文字 |
-| 子智能体的供应商分组 | `[class*="_modelGroup"]` 里的 `[class*="_providerName"]`，文字是 provider displayName | 同上用类名后缀；分组标题就是供应商名，不是 locale 文案 |
+| 子智能体的供应商分组 | 行内 `[class*="_route"]` 的文字「DeepSeek · deepseek-official/deepseek-flash」，取 `·` 后面 `/` 前面那段当 provider id | 官方那组的标题也叫 `DeepSeek`，只有 id 分得清；拿不到 id 时退回 `[class*="_providerName"]` 的文字 |
 
 找不到就安静跳过，不抛错、不碰别的地方；三个 sweep 步骤各自 try/catch，一处结构变了不影响另外两处。
 

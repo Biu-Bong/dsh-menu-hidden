@@ -209,6 +209,8 @@ window.__ModuleLoader__.load({
 		const ACCOUNT_BADGE_SELECTOR = '[class*="_accountStatus"]';
 		/** 子智能体设置页的供应商分组（Vite CSS Modules：_hash_modelGroup / _hash_providerName）。 */
 		const SUBAGENT_GROUP_SELECTOR = '[class*="_modelGroup"]';
+		/** 子智能体列表每行的副标题：「DeepSeek · deepseek-official/deepseek-flash」，provider id 比显示名可靠。 */
+		const SUBAGENT_ROUTE_SELECTOR = '[class*="_route"]';
 		const SUBAGENT_PROVIDER_SELECTOR = '[class*="_providerName"]';
 
 		// ── §4 隐藏 / 还原 ────────────────────────────────────────────────────
@@ -278,17 +280,37 @@ window.__ModuleLoader__.load({
 			}
 		}
 
-		/** 子智能体设置页：按供应商标题认，连标题带模型整组藏。 */
+		/**
+		 * 子智能体设置页：整组藏。
+		 * 先看行里的 route（provider id 稳定：deepseek-official / deepseek-account），
+		 * 拿不到再退回标题文字 —— 这页的标题是 provider displayName，官方那组就叫「DeepSeek」。
+		 */
 		function sweepSubagentModels(root) {
 			const norm = (text) => text.replace(/[\s\u3000]+/g, "").toLowerCase();
-			const names = root.matches(SUBAGENT_PROVIDER_SELECTOR) ? [root, ...root.querySelectorAll(SUBAGENT_PROVIDER_SELECTOR)] : [...root.querySelectorAll(SUBAGENT_PROVIDER_SELECTOR)];
-			for (const name of names) {
-				const text = (name.textContent ?? "").trim();
-				const group = name.closest(SUBAGENT_GROUP_SELECTOR);
-				if (group === null) continue;
-				const key = norm(text);
+			const providerOf = (group) => {
+				const route = group.querySelector(SUBAGENT_ROUTE_SELECTOR);
+				if (route === null) return "";
+				const text = (route.textContent ?? "").trim();
+				const tail = text.includes("·") ? text.slice(text.lastIndexOf("·") + 1).trim() : text;
+				return tail.split("/")[0].trim().toLowerCase();
+			};
+			const groups = root.matches(SUBAGENT_GROUP_SELECTOR) ? [root, ...root.querySelectorAll(SUBAGENT_GROUP_SELECTOR)] : [...root.querySelectorAll(SUBAGENT_GROUP_SELECTOR)];
+			for (const group of groups) {
+				const id = providerOf(group);
+				if (id === "deepseek-official") {
+					setHidden(group, prefs.subagentOfficial === true);
+					continue;
+				}
+				if (id === "deepseek-account") {
+					setHidden(group, prefs.subagentAccount === true);
+					continue;
+				}
+				if (id !== "") continue;
+				const name = group.querySelector(SUBAGENT_PROVIDER_SELECTOR);
+				if (name === null) continue;
+				const key = norm((name.textContent ?? "").trim());
 				if (matches(SUBAGENT_ACCOUNT_LABELS, key)) setHidden(group, prefs.subagentAccount === true);
-				else if (matches(SUBAGENT_OFFICIAL_LABELS, key)) setHidden(group, prefs.subagentOfficial === true);
+				else if (matches(SUBAGENT_OFFICIAL_LABELS, key) || key === "deepseek") setHidden(group, prefs.subagentOfficial === true);
 			}
 		}
 
