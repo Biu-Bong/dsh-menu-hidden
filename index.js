@@ -27,6 +27,10 @@ export const inject = ['webServer']
 
 const ROUTE = '/dsh-menu-hidden/api/shell-menu'
 const REASONING_ROUTE = '/dsh-menu-hidden/api/reasoning'
+const UPDATE_ROUTE = '/dsh-menu-hidden/api/update'
+const REPO_SLUG = 'Biu-Bong/dsh-menu-hidden'
+const REPO_URL = `https://github.com/${REPO_SLUG}`
+const UPDATE_TTL_MS = 30 * 60 * 1000
 const BACKUP_SUFFIX = '.menuhidden.bak'
 /** 官方原样：development 为 false 时整段被丢掉。 */
 const MARK_ORIGINAL = '...development ? ['
@@ -266,6 +270,70 @@ function readJsonBody(request, limit = 64 * 1024) {
  * @param {object} ctx - 宿主上下文。
  * @param {object} [config] - 预留配置。
  */
+/** 本插件的版本号：读自己旁边的 package.json。 */
+function readVersion() {
+  try {
+    return JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
+  } catch {
+    return '0.0.0'
+  }
+}
+
+/** 只比 major.minor.patch，预发布后缀（-rc.1）先剥掉。 */
+function compareVersions(a, b) {
+  const parse = (value) => String(value).replace(/^v/, '').split('-')[0].split('.').map((part) => Number.parseInt(part, 10) || 0)
+  const left = parse(a)
+  const right = parse(b)
+  for (let index = 0; index < 3; index += 1) {
+    const diff = (left[index] ?? 0) - (right[index] ?? 0)
+    if (diff !== 0) return diff > 0 ? 1 : -1
+  }
+  return 0
+}
+
+let updateCache = { at: 0, payload: null }
+
+async function fetchJson(url, timeoutMs) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', 'user-agent': 'dsh-menu-hidden' },
+      signal: controller.signal,
+    })
+    if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
+    return await response.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 最新版本号。api.github.com 未登录时限流很凶（这台机器上就直接 403），
+ * 所以先读 raw 上的 package.json，再退到 jsdelivr，最后才试 GitHub API。
+ */
+async function latestRelease() {
+  if (updateCache.payload !== null && Date.now() - updateCache.at < UPDATE_TTL_MS) return updateCache.payload
+  const sources = [
+    async () => ({ latest: String((await fetchJson(`https://raw.githubusercontent.com/${REPO_SLUG}/main/package.json`, 8000)).version ?? '') }),
+    async () => ({ latest: String((await fetchJson(`https://cdn.jsdelivr.net/gh/${REPO_SLUG}@main/package.json`, 8000)).version ?? '') }),
+    async () => ({ latest: String((await fetchJson(`https://api.github.com/repos/${REPO_SLUG}/releases/latest`, 8000)).tag_name ?? '').replace(/^v/, '') }),
+  ]
+  let lastError = null
+  for (const load of sources) {
+    try {
+      const { latest } = await load()
+      if (latest === '') throw new Error('版本号是空的')
+      const payload = { latest, url: `${REPO_URL}/releases` }
+      updateCache = { at: Date.now(), payload }
+      return payload
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('没有可用的版本源')
+}
+
 export function apply(ctx, config = {}) {
   void config
   const info = (line) => {
@@ -365,5 +433,39 @@ export function apply(ctx, config = {}) {
   }
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: REASONING_ROUTE, handler: reasoningHandler }), 'dsh-menu-hidden: reasoning route')
+
+  const updateHandler = async (request, response) => {
+    const send = (code, body) => {
+      response.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+      response.end(JSON.stringify(body))
+    }
+    if (!trustedRequest(request)) {
+      send(403, { ok: false, error: '请求来源不受信任。' })
+      return
+    }
+    if (request.method !== 'GET') {
+      response.writeHead(405, { allow: 'GET' })
+      response.end()
+      return
+    }
+    const current = readVersion()
+    try {
+      const release = await latestRelease()
+      send(200, {
+        ok: true,
+        current,
+        latest: release.latest,
+        hasUpdate: compareVersions(release.latest, current) > 0,
+        url: release.url,
+        repo: REPO_URL,
+        checkedAt: Date.now(),
+      })
+    } catch (error) {
+      send(200, { ok: false, current, latest: null, hasUpdate: false, repo: REPO_URL, error: String((error && error.message) || error) })
+    }
+  }
+
+  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: UPDATE_ROUTE, handler: updateHandler }), 'dsh-menu-hidden: update route')
+  info(`route mounted: ${UPDATE_ROUTE}`)
   info(`route mounted: ${REASONING_ROUTE}`)
 }

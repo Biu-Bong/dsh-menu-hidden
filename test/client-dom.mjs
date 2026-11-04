@@ -9,6 +9,7 @@ const html = `<!doctype html><html><body>
   <li class="h1_rowCard" id="openaiRow"><div class="h1_rowHead"><span class="h1_rowIdentity"><span class="h1_rowName">OpenAI</span></span></div></li>
 </ul>
 <div id="menuHost"></div>
+<button type="button" class="n1_newSession" id="navNewSession"><span class="n1_newSessionContent"><span class="n1_newSessionLabel">新会话</span></span></button>
 <nav class="n1_nav" aria-label="全局面板" id="sideNav">
   <button type="button" class="n1_panelRow" id="navPlugins" aria-label="插件"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">插件</span></button>
   <button type="button" class="n1_panelRow" id="navSchedules" aria-label="定时任务"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">定时任务</span></button>
@@ -92,6 +93,7 @@ const before = {
   navSchedules: hidden('navSchedules'),
   navMore: hidden('navMore'),
   navArchive: hidden('navArchive'),
+  navNewSession: hidden('navNewSession'),
 }
 
 // 再往菜单里追加一组，验证观察器同步生效（模拟点开菜单）

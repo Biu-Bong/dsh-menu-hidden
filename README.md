@@ -120,7 +120,7 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 
 为什么 web 端也能跑：客户端半用的是 Web UI 的 DOM 和 slot，`package.json` 里 `dsh.client.platform` 就是 `"web"`，桌面版加载的也是同一套 Web 前端；宿主半只要求 `webServer` 服务，`web` profile 里也有。第 5 条走的是 Electron 主进程的 `Menu.buildFromTemplate(...).popup()`，浏览器里没有承载物——这种环境下宿主半找不到 `lib/main.js`，设置页那一行会显示「没找到外壳文件」，点按钮只会回一句说明，不会动到任何文件。
 
-## 九条功能与实现
+## 十条功能与实现
 
 | # | 效果 | 实现方式 | 生效时机 |
 |---|---|---|---|
@@ -133,6 +133,7 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 | 7 | 账号菜单里隐藏「退出登录」 | 同上，另一个开关各管一项；两项都藏时菜单只剩「设置」 | 立刻 |
 | 8 | 子智能体的模型选择里隐藏「DeepSeek Account」「DeepSeek 官方 API」两组 | 客户端 DOM：按每行副标题里的 provider id（`deepseek-official` / `deepseek-account`）认组，藏掉外层 `[class*="_modelGroup"]`；拿不到 id 才退回标题文字（两个开关，都在「模型选择框」组里） | 立刻 |
 | 9 | 侧边栏那排图标里隐藏「插件」「定时任务」「更多」 | 客户端 DOM：`button[class*="_panelRow"]` 按 `aria-label` 认（收起时没有文字，只剩这个属性），三个开关各管一个 | 立刻 |
+| 10 | 隐藏侧边栏顶部那个「新会话」大按钮 | 客户端 DOM：`button[class*="_newSession"]`，展开是整条按钮、收起是标题栏里的小图标，同一个类名都认 | 立刻 |
 
 ## 为什么不会闪
 
@@ -202,14 +203,24 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 
 ## 设置页
 
-设置 → 菜单隐藏：五个并列标题 + 十一个开关 + 两个按钮。
+设置 → 菜单隐藏：五个并列标题 + 十二个开关 + 两个按钮，最上面一条是项目地址和版本号。
+
+顶部那条长这样：
+
+```
+项目地址 · github.com/Biu-Bong/dsh-menu-hidden   v0.2.8   ● 有新版本 v0.2.9   [检查更新]
+```
+
+- 点项目地址用系统浏览器打开仓库（Electron 的 `window.open` 会被拦，脚本里退回 `location.href`，由 `will-navigate` 交给 `shell.openExternal`）。
+- 进设置页时自动查一次；30 分钟内不重复查。有更新就在版本号后面点一个红点，写上最新版本。
+- 版本源顺序：`raw.githubusercontent.com` 上的 `package.json` → jsDelivr 同一份 → GitHub Releases API。**不先用 API**：未登录的 `api.github.com` 按 IP 限流，60 次/小时，台式机常年挂着很容易 403（本机实测就是 403）。
 
 - **模型选择框**：四开关 —— 下拉框里的「DeepSeek 账号」分组 / 「DeepSeek官方 API」分组，以及子智能体「Agent 可选择的模型」列表里的「DeepSeek Account」/「DeepSeek 官方 API」两组。
 - **设置 · 模型**：两开关，隐藏设置页里的账号整行 / 官方 API 整行。
 - **侧边栏**：三开关，隐藏左侧那排图标里的「插件」/「定时任务」/「更多」。
 - **账号菜单**：两开关，隐藏右下角头像菜单里的「意见反馈」/「退出登录」。
 - **推理等级**：全局默认 + 按供应商覆盖，写入 profile 配置；面板重新获得焦点会自动重读，也能点「重新读取」。
-- 十一个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
+- 十二个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
 - 「应用菜单」那一行显示外壳状态（已写入 / 未改动 / 没找到文件）+ 写入 / 还原按钮。
 - 最后一行「现在刷新一次界面」，等同应用菜单里的「刷新页面」。
 

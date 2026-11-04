@@ -39,6 +39,8 @@ window.__ModuleLoader__.load({
 		const MARK = "data-dshmh-hidden";
 		const SHELL_ROUTE = "/dsh-menu-hidden/api/shell-menu";
 		const REASONING_ROUTE = "/dsh-menu-hidden/api/reasoning";
+		const UPDATE_ROUTE = "/dsh-menu-hidden/api/update";
+		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -82,6 +84,14 @@ window.__ModuleLoader__.load({
 				sidebarSchedulesHint: "同一排图标里的定时任务入口。",
 				sidebarMoreLabel: "隐藏侧边栏的「更多」",
 				sidebarMoreHint: "那排图标最后的「更多」，点开是没固定在侧栏的面板。藏掉之后它们只能靠命令面板进。",
+				sidebarNewSessionLabel: "隐藏侧边栏的「新会话」",
+				sidebarNewSessionHint: "那个大按钮。点左上角的 LOGO 一样能开新会话，Ctrl+N 也还在。",
+				updateCheck: "检查更新",
+				updateChecking: "检查中…",
+				updateLatest: "已是最新",
+				updateNew: "有新版本",
+				updateFailed: "检查失败",
+				updateRepo: "项目地址",
 				feedbackLabel: "隐藏「意见反馈」",
 				feedbackHint: "右下角头像点开的那份菜单里的「意见反馈」。",
 				signOutLabel: "隐藏「退出登录」",
@@ -142,6 +152,14 @@ window.__ModuleLoader__.load({
 				sidebarSchedulesHint: "The Scheduled tasks entry in the same rail.",
 				sidebarMoreLabel: "Hide \"More\" in the sidebar",
 				sidebarMoreHint: "The More launcher at the end of the rail; the panels it opens stay reachable from the command palette.",
+				sidebarNewSessionLabel: "Hide \"New session\" in the sidebar",
+				sidebarNewSessionHint: "The big button. The brand mark and Ctrl+N still start a session.",
+				updateCheck: "Check for updates",
+				updateChecking: "Checking…",
+				updateLatest: "Up to date",
+				updateNew: "New version",
+				updateFailed: "Check failed",
+				updateRepo: "Project",
 				feedbackLabel: "Hide \"Feedback\"",
 				feedbackHint: "The Feedback item in the account menu opened from the avatar at the bottom right.",
 				signOutLabel: "Hide \"Sign out\"",
@@ -174,6 +192,7 @@ window.__ModuleLoader__.load({
 			sidebarPlugins: true,
 			sidebarSchedules: true,
 			sidebarMore: true,
+			sidebarNewSession: true,
 			subagentAccount: true,
 			subagentOfficial: true,
 			accountRow: true,
@@ -232,6 +251,8 @@ window.__ModuleLoader__.load({
 		const SIDEBAR_PLUGINS_LABELS = ["插件", "Plugins"];
 		const SIDEBAR_SCHEDULES_LABELS = ["定时任务", "Scheduled tasks", "Schedules"];
 		const SIDEBAR_MORE_LABELS = ["更多", "More"];
+		/** 「新会话」大按钮：button._newSession，收起时变成标题栏里的小图标，同样认类名。 */
+		const SIDEBAR_NEW_SESSION_SELECTOR = 'button[class*="_newSession"]';
 		const SUBAGENT_ROUTE_SELECTOR = '[class*="_route"]';
 		const SUBAGENT_PROVIDER_SELECTOR = '[class*="_providerName"]';
 
@@ -305,6 +326,8 @@ window.__ModuleLoader__.load({
 		/** 侧边栏面板图标：按 aria-label 认（收起时没有文字，只剩它）。 */
 		function sweepSidebarNav(root) {
 			const rows = root.matches(SIDEBAR_ROW_SELECTOR) ? [root, ...root.querySelectorAll(SIDEBAR_ROW_SELECTOR)] : [...root.querySelectorAll(SIDEBAR_ROW_SELECTOR)];
+			const create = root.matches(SIDEBAR_NEW_SESSION_SELECTOR) ? [root, ...root.querySelectorAll(SIDEBAR_NEW_SESSION_SELECTOR)] : [...root.querySelectorAll(SIDEBAR_NEW_SESSION_SELECTOR)];
+			for (const button of create) setHidden(button, prefs.sidebarNewSession === true);
 			for (const row of rows) {
 				const text = (row.getAttribute("aria-label") ?? row.textContent ?? "").trim();
 				if (matches(SIDEBAR_PLUGINS_LABELS, text)) setHidden(row, prefs.sidebarPlugins === true);
@@ -534,6 +557,13 @@ window.__ModuleLoader__.load({
 			".dshmh-page{box-sizing:border-box;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px}",
 			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0 0 4px;font-size:16px;font-weight:500;line-height:24px}",
 			".dshmh-desc{color:var(--dsw-alias-label-secondary,inherit);margin:0;font-size:14px;line-height:22px}",
+			".dshmh-project{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 4px;font-size:12px}",
+			".dshmh-link{color:var(--dsw-alias-state-business-primary,#4d8dff);text-decoration:none;border-bottom:1px solid transparent}",
+			".dshmh-link:hover{border-bottom-color:currentColor}",
+			".dshmh-version{color:var(--dsw-alias-label-secondary,inherit);font-variant-numeric:tabular-nums}",
+			".dshmh-new{display:inline-flex;align-items:center;gap:6px;color:#ff6b6b;font-weight:500}",
+			".dshmh-dot{width:7px;height:7px;border-radius:50%;background:#ff4d4f;box-shadow:0 0 0 2px rgba(255,77,79,.18);display:inline-block}",
+			".dshmh-inline{margin:0}",
 			".dshmh-subtitle{color:var(--dsw-alias-label-primary,inherit);margin:24px 0 0;font-size:14px;font-weight:500;line-height:22px}",
 			".dshmh-row{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,.2))}",
 			".dshmh-text{display:flex;flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:32px}",
@@ -717,6 +747,7 @@ window.__ModuleLoader__.load({
 			const [draftOverrides, setDraftOverrides] = React.useState({});
 			const [reasoningBusy, setReasoningBusy] = React.useState(false);
 			const [reasoningNote, setReasoningNote] = React.useState(null);
+			const [update, setUpdate] = React.useState(null);
 
 			React.useEffect(() => {
 				let alive = true;
@@ -726,6 +757,16 @@ window.__ModuleLoader__.load({
 				);
 				return () => { alive = false; };
 			}, []);
+
+			const checkUpdate = () => {
+				setUpdate((prev) => ({ ...(prev ?? {}), status: "loading" }));
+				fetch(UPDATE_ROUTE, { credentials: "same-origin" }).then((response) => response.json()).then(
+					(state) => setUpdate({ status: "done", ...state }),
+					(error) => setUpdate({ status: "error", error: String((error && error.message) || error) }),
+				);
+			};
+
+			React.useEffect(() => { checkUpdate(); }, []);
 
 			const toggle = (key) => (next) => {
 				prefs[key] = next === true;
@@ -853,6 +894,7 @@ window.__ModuleLoader__.load({
 				["sidebarPlugins", "sidebarPluginsLabel", "sidebarPluginsHint"],
 				["sidebarSchedules", "sidebarSchedulesLabel", "sidebarSchedulesHint"],
 				["sidebarMore", "sidebarMoreLabel", "sidebarMoreHint"],
+				["sidebarNewSession", "sidebarNewSessionLabel", "sidebarNewSessionHint"],
 			].map(([key, label, hint]) => React.createElement(ToggleRow, {
 				key,
 				label: t(label),
@@ -965,6 +1007,31 @@ window.__ModuleLoader__.load({
 				React.createElement("h2", { className: "dshmh-title" }, t("title")),
 				React.createElement("p", { className: "dshmh-desc" }, t("desc")),
 				React.createElement("p", { className: "dshmh-note" }, t("autoRefreshNote")),
+				React.createElement("div", { className: "dshmh-project" },
+					React.createElement("a", {
+						className: "dshmh-link",
+						href: REPO_URL,
+						target: "_blank",
+						rel: "noreferrer",
+						onClick: (event) => {
+							// Electron 里 window.open 会被拦，退回普通跳转由 will-navigate 交给系统浏览器。
+							const opened = window.open(REPO_URL, "_blank", "noopener");
+							if (opened === null) { event.preventDefault(); window.location.href = REPO_URL; }
+						},
+					}, t("updateRepo") + " · github.com/Biu-Bong/dsh-menu-hidden"),
+					update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-version" }, "v" + update.current) : null,
+					update !== null && update.hasUpdate === true ? React.createElement("span", { className: "dshmh-new" },
+						React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }),
+						t("updateNew") + " v" + String(update.latest)) : null,
+					React.createElement("button", {
+						type: "button",
+						className: "dshmh-btn",
+						disabled: update !== null && update.status === "loading",
+						onClick: checkUpdate,
+					}, update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck")),
+					update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("span", { className: "dshmh-caption dshmh-inline" }, t("updateLatest")) : null,
+					update !== null && update.status === "error" ? React.createElement("span", { className: "dshmh-caption dshmh-inline" }, t("updateFailed") + "：" + String(update.error ?? "")) : null,
+				),
 
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupPicker")),
 				...rows,
