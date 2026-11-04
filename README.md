@@ -79,6 +79,33 @@ dsh plugin --profile web remove dsh-menu-hidden
 
 也可以把仓库地址交给 DSH 助手，一句话：`装一下 github:Biu-Bong/dsh-menu-hidden`。
 
+### 图形界面装法（设置里那个「添加插件」框）
+
+那个输入框吃的是**一个安装地址**，不是一条命令。把整条 `dsh plugin --profile desktop add ...` 粘进去会报：
+
+```
+无法识别这个包名或地址：not a package name the registry accepts
+```
+
+因为 `parseInstallSpec()` 是这么判的（`@deepseek-ai/dsh-plugin-manager/lib/types/install-spec.js`）：先看是不是绝对本地路径，再看是不是 git 地址（`github:` / `gitlab:` / `bitbucket:` / `gist:` 前缀、`git@host:owner/repo`、`https://host/owner/repo`），再看是不是 `名字@版本`，都不像才落到 npm 包名正则 `^(?:@scope/)?name$` 上。整条命令里有空格和 `--profile`，三段都不匹配，于是被拒。
+
+填这几种之一：
+
+| 填什么 | 说明 |
+|---|---|
+| `github:Biu-Bong/dsh-menu-hidden#v0.2.15` | 钉到 tag，升级不漂移（推荐） |
+| `github:Biu-Bong/dsh-menu-hidden` | 跟 main，之后能自己在面板里更新 |
+| `https://github.com/Biu-Bong/dsh-menu-hidden` | 同一个仓库的 URL 写法 |
+| `D:\绝对路径\dsh-menu-hidden` | 本地目录，调试用；相对路径会被拒 |
+
+装完在「插件」页把开关点开，然后重启一次应用。
+
+**装之前先确认没有第二份**：同一 profile 里如果同时存在 `@local/dsh-menu-hidden`（本地软链调试那份）和 `dsh-menu-hidden`（仓库版），两边 loader id 不同，会同时激活——设置里会并排出现两个「菜单隐藏」面板。只留仓库版的话，先删软链再装：
+
+```bash
+dsh plugin --profile desktop remove @local/dsh-menu-hidden
+```
+
 ## 收进插件市场
 
 DSH 的「发现」标签页不连某个中心服务器，它读的是**你配置的索引源**（format 1 的 JSON），默认一个都没有。所以「上架」有两条互不冲突的路：
@@ -311,6 +338,24 @@ dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.1.1
 回归测试也在仓库里：`node test/client-load.mjs client.js` 用一份假的 `window.__ModuleLoader__` 把 factory 跑一遍 —— 0.1.0 的写法会在这一步抛 `ReferenceError: module is not defined`，0.1.1 返回 `{ name, inject, apply }`。
 
 如果已经起不来、连界面都进不去：把 `profiles/<名字>/node_modules/dsh-menu-hidden` 挪走，并从同一个 `package.json` 的 `dsh.profile.bundles` 里删掉 `dsh-menu-hidden` 那一行，就能先启动；进了界面之后再装 0.1.1。
+
+## 排障：那个输入框说「无法识别这个包名或地址」
+
+设置 → 插件 → 「添加插件」的输入框只收**一个安装地址**，填整条 shell 命令会报 `not a package name the registry accepts`。正确填法：
+
+```
+github:Biu-Bong/dsh-menu-hidden#v0.2.15
+```
+
+判据见上面「图形界面装法」那一节。
+
+## 排障：设置里出现两个「菜单隐藏」
+
+同一个 profile 里装了两份：`@local/dsh-menu-hidden`（本地软链调试那份）和 `dsh-menu-hidden`（仓库版）。两边 loader id 不同，所以会同时激活。删掉不要的那份再重启：
+
+```bash
+dsh plugin --profile desktop remove @local/dsh-menu-hidden
+```
 
 ## License
 
