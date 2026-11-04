@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Menu Hiding (dsh-menu-hidden)",
-    "description": "Add Reload and Restart to the app menu; hide sidebar items, official model groups and duplicate tabs; set a default reasoning level."
+    "description": "Add Reload and Restart to the app menu; hide sidebar items, official model groups and duplicate tabs; pin a default reasoning level, auto-filling new providers and models."
   }
 }

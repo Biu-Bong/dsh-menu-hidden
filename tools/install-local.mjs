@@ -213,5 +213,8 @@ function report(state) {
   for (const note of notes) lines.push(`提示    ${note}`)
   for (const problem of problems) lines.push(`失败    ${problem}`)
   console.log(lines.join('\n'))
-  console.log(problems.length === 0 ? '\n可以重启 DSH 了。' : '\n检查没过，已停止，没有写入。')
+  console.log(problems.length === 0
+    ? '\n装好了。要让它生效：退出 DeepSeek Harness 再打开（或应用菜单「重启应用与 Host」）。\n'
+      + '只按「刷新页面」不行——Host 手里的模块清单还是旧的，刷新会报 “1 entry did not activate / import failed”。'
+    : '\n检查没过，已停止，没有写入。')
 }

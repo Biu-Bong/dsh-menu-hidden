@@ -16,7 +16,8 @@
  * 开关存在 localStorage（键 dsh-menu-hidden:v1），保存即生效。
  */
 
-window.__ModuleLoader__.load({
+function registerClient() {
+	return window.__ModuleLoader__.load({
 	// factory id 必须等于 package.json 的包名，否则 boot 图里找不到 factory。
 	id: "dsh-menu-hidden",
 	factory: (require) => {
@@ -46,7 +47,7 @@ window.__ModuleLoader__.load({
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.17";
+		const VERSION = "0.2.26";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -77,8 +78,15 @@ window.__ModuleLoader__.load({
 				reasoningFollow: "跟随全局",
 				reasoningProviders: "按供应商单独设置",
 				reasoningApply: "写入配置",
+				autoFillLabel: "自动补齐新供应商、新模型",
+				autoFillHint: "配置里新出现供应商或模型时，按上面的默认档自动补一行 reasoning；只补空的，不改你手写的值。",
+				autoFillOn: "已开启自动补齐。",
+				autoFillOff: "已关闭自动补齐，以后新加的供应商、模型要自己点「写入配置」。",
+				hideDefaultEffortLabel: "隐藏推理等级里的「Default」",
+				hideDefaultEffortHint: "推理菜单第一项 Default 表示「不指定、用配置里的值」。把它藏掉，菜单里就只剩具体档位，不会再被误选成 Default。",
 				reasoningReload: "重新读取",
 				reasoningApplied: "已写入，下一条消息就按新的等级走。",
+				reasoningSkipped: "；但这些模型没声明这一档，仍会显示 Default：{models}",
 				reasoningUnchanged: "配置已经一致，没有改动文件。",
 				reasoningFailed: "写入失败：",
 				reasoningEmpty: "没找到带 llm-pi-ai 的 profile 配置。",
@@ -120,22 +128,20 @@ window.__ModuleLoader__.load({
 				feedbackHint: "右下角头像点开的那份菜单里的「意见反馈」。",
 				signOutLabel: "隐藏「退出登录」",
 				signOutHint: "同一份菜单里的「退出登录」。藏掉之后账号菜单只剩「设置」；需要退出时把这里关掉即可。",
-				shellLabel: "应用菜单：在「退出」上方加「刷新页面」「重启应用与 Host」",
-				shellHint: "这两项在外壳主进程里，插件给 lib/main.js 打开官方留着的开关（幂等、留备份、可还原）。改完要重启一次应用才看得到。",
-				shellStateOn: "已写入外壳",
-				shellStateOff: "外壳未改动",
+				shellLabel: "应用菜单：补上「刷新页面」「重启应用与 Host」",
+				shellHint: "改的是应用外壳的开关，随时可还原，重启生效。",
+				shellStateOn: "已写入",
+				shellStateOff: "未改动",
 				shellStateMissing: "没找到外壳 main.js",
 				shellApply: "写入补丁",
 				shellRollback: "还原",
-				shellRestartHint: "重启 DeepSeek Harness 之后，「应用」菜单里「退出」上方会多出这两项。",
-				shellWrote: "写入完成，重启应用后生效。",
-				shellReverted: "已还原，重启应用后恢复原样。",
+				shellWrote: "已写入。",
+				shellReverted: "已还原。",
 				shellUnchanged: "状态已经是这样，没有改动文件。",
 				shellFailed: "失败：",
-				refreshLabel: "现在刷新一次界面",
-				refreshHint: "等同于应用菜单里的「刷新页面」：重新加载渲染进程，不重启 Host，正在跑的任务不受影响。",
-				refreshAction: "刷新界面",
-				autoRefreshNote: "改开关会立即生效，不需要刷新。",
+				refreshLabel: "刷新页面",
+				refreshHint: "重新加载渲染进程，不重启 Host，正在跑的任务不受影响。",
+				refreshAction: "刷新页面",
 			},
 			en: {
 				sectionLabel: "Menu Hiding",
@@ -162,8 +168,15 @@ window.__ModuleLoader__.load({
 				reasoningFollow: "Follow global",
 				reasoningProviders: "Per provider",
 				reasoningApply: "Write to config",
+				autoFillLabel: "Auto-fill new providers and models",
+				autoFillHint: "When a provider or model shows up without a level, write the default level above for it. Only fills the gaps; your hand-written values stay.",
+				autoFillOn: "Auto-fill is on.",
+				autoFillOff: "Auto-fill is off; new providers and models wait for Apply.",
+				hideDefaultEffortLabel: "Hide \"Default\" in the reasoning menu",
+				hideDefaultEffortHint: "The first entry, Default, means \"unspecified, use the configured level\". Hide it so the menu only offers real levels.",
 				reasoningReload: "Reload",
 				reasoningApplied: "Written. The next message uses the new level.",
+				reasoningSkipped: "; but these models do not declare that level and still show Default: {models}",
 				reasoningUnchanged: "Config already matches; nothing written.",
 				reasoningFailed: "Failed: ",
 				reasoningEmpty: "No profile config with llm-pi-ai was found.",
@@ -206,22 +219,20 @@ window.__ModuleLoader__.load({
 				feedbackHint: "The Feedback item in the account menu opened from the avatar at the bottom right.",
 				signOutLabel: "Hide \"Sign out\"",
 				signOutHint: "The Sign out item in the same menu. With it hidden the menu keeps only Settings; turn it back on here when you need to sign out.",
-				shellLabel: "Application menu: add Reload Page and Restart App and Host above Quit",
-				shellHint: "Those two live in the Electron main process. The plugin flips the switch the shell already ships with in lib/main.js (idempotent, backed up, reversible). Restart the app once to see them.",
-				shellStateOn: "Shell patched",
-				shellStateOff: "Shell untouched",
+				shellLabel: "Application menu: add Reload Page and Restart App and Host",
+				shellHint: "Flips a switch in the app shell. Reversible, takes effect after one restart.",
+				shellStateOn: "Written",
+				shellStateOff: "Not applied",
 				shellStateMissing: "Shell main.js not found",
 				shellApply: "Apply patch",
 				shellRollback: "Revert",
-				shellRestartHint: "After restarting DeepSeek Harness, both items appear above Quit in the Application menu.",
-				shellWrote: "Written. Restart the app to pick it up.",
-				shellReverted: "Reverted. Restart the app to restore the old menu.",
+				shellWrote: "Written.",
+				shellReverted: "Reverted.",
 				shellUnchanged: "Already in that state; the file was not touched.",
 				shellFailed: "Failed: ",
-				refreshLabel: "Reload the UI now",
-				refreshHint: "Same as Reload Page in the application menu: reloads the renderer without restarting the Host, so running tasks keep going.",
-				refreshAction: "Reload",
-				autoRefreshNote: "Toggles apply instantly; no reload needed.",
+				refreshLabel: "Reload page",
+				refreshHint: "Reloads the renderer without restarting the Host, so running tasks keep going.",
+				refreshAction: "Reload page",
 			},
 		};
 		/** apply() 里由 ctx.locale.bind() 换成真翻译函数；没绑上时原样返回键名。 */
@@ -241,6 +252,7 @@ window.__ModuleLoader__.load({
 			officialRow: true,
 			feedback: true,
 			signOut: true,
+			hideDefaultEffort: true,
 		};
 		const prefs = { ...DEFAULTS };
 
@@ -277,6 +289,7 @@ window.__ModuleLoader__.load({
 		const ACCOUNT_ROW_LABELS = ["DeepSeek 账号", "DeepSeek Account"];
 		const OFFICIAL_ROW_LABELS = ["DeepSeek"];
 		/** 账号菜单里的意见反馈。 */
+		const EFFORT_ITEM_SELECTOR = '[role="menuitemradio"], [role="option"]';
 		const FEEDBACK_LABELS = ["意见反馈", "Feedback"];
 		/** 账号菜单里的退出登录。 */
 		const SIGN_OUT_LABELS = ["退出登录", "退出帳號", "Sign out", "Log out", "Sign Out"];
@@ -441,7 +454,21 @@ window.__ModuleLoader__.load({
 		function sweepRoot(root) {
 			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
-			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav]) {
+			/** 推理菜单（模型选择器里的等级列表）第一项 Default = 不指定，按开关藏掉。 */
+			function sweepDefaultEffort(root) {
+				const boxes = root.matches(EFFORT_ITEM_SELECTOR)
+					? [root, ...root.querySelectorAll(EFFORT_ITEM_SELECTOR)]
+					: [...root.querySelectorAll(EFFORT_ITEM_SELECTOR)];
+				for (const box of boxes) {
+					const text = (box.textContent ?? "").trim();
+					if (text !== "Default" && text !== "默认") continue;
+					const menu = box.closest('[role="menu"]');
+					if (menu !== null && menu.querySelectorAll(EFFORT_ITEM_SELECTOR).length < 2) continue;
+					setHidden(box, prefs.hideDefaultEffort === true);
+				}
+			}
+
+			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav, sweepDefaultEffort]) {
 				try {
 					step(root);
 				} catch (error) {
@@ -766,7 +793,17 @@ window.__ModuleLoader__.load({
 		 * @param {Array<{ profile: string, changed: number }>} written - 宿主回报的写入结果。
 		 * @returns {string} 拼好的后缀，没有就空串。
 		 */
-		function changedProfiles(written) {
+	/** 把「没吃到这一档」的模型拼成一句尾巴。 */
+	function skippedModels(rows) {
+		if (!Array.isArray(rows) || rows.length === 0) return "";
+		const names = rows.map((row) => (row && typeof row.model === "string" ? row.model : "")).filter((name) => name !== "");
+		if (names.length === 0) return "";
+		const unique = [...new Set(names)];
+		const head = unique.slice(0, 3).join(" / ");
+		return t("reasoningSkipped").replace("{models}", unique.length > 3 ? head + " …" : head);
+	}
+
+	function changedProfiles(written) {
 			if (Array.isArray(written) !== true) return "";
 			const names = written.filter((entry) => entry !== null && typeof entry === "object" && entry.changed > 0).map((entry) => String(entry.profile));
 			return names.length === 0 ? "" : "（" + names.join("、") + "）";
@@ -852,6 +889,7 @@ window.__ModuleLoader__.load({
 			const [draftGlobal, setDraftGlobal] = React.useState(null);
 			const [draftOverrides, setDraftOverrides] = React.useState({});
 			const [reasoningBusy, setReasoningBusy] = React.useState(false);
+			const [autoFillOn, setAutoFillOn] = React.useState(true);
 			const [reasoningNote, setReasoningNote] = React.useState(null);
 			const [update, setUpdate] = React.useState(null);
 
@@ -909,6 +947,8 @@ window.__ModuleLoader__.load({
 				fetch(REASONING_ROUTE, { credentials: "same-origin" }).then((response) => response.json()).then((state) => {
 					if (!aliveRef.current) return;
 					setReasoning(state);
+					setAutoFillOn(state.autoFill !== false);
+					if (keepDraft === true) return;					setReasoning(state);
 					if (keepDraft === true) return;
 					const savedGlobal = typeof state.global === "string" ? state.global : null;
 					const savedOverrides = state.overrides !== null && typeof state.overrides === "object" ? state.overrides : {};
@@ -1076,6 +1116,29 @@ window.__ModuleLoader__.load({
 						}, levelOptions([levelOption("", t("reasoningFollow")), levelOption("none", t("reasoningNone"))]))));
 			});
 
+			const autoFillRow = React.createElement(ToggleRow, {
+				label: t("autoFillLabel"),
+				hint: t("autoFillHint"),
+				checked: autoFillOn,
+				onChange: (next) => {
+					setAutoFillOn(next);
+					setReasoningNote(null);
+					const overrides = {};
+					for (const [id, value] of Object.entries(draftOverrides)) overrides[id] = value;
+					fetch(REASONING_ROUTE, {
+						method: "POST",
+						credentials: "same-origin",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ global: draftGlobal, overrides, autoFill: next }),
+					}).then((response) => response.json()).then((state) => {
+						if (!aliveRef.current) return;
+						setReasoning(state);
+						setAutoFillOn(state.autoFill !== false);
+						setReasoningNote({ tone: null, text: t(next ? "autoFillOn" : "autoFillOff") });
+					}).catch(() => {});
+				},
+			});
+
 			const applyReasoningNow = () => {
 				setReasoningBusy(true);
 				setReasoningNote(null);
@@ -1092,7 +1155,7 @@ window.__ModuleLoader__.load({
 					if (state.overrides !== null && typeof state.overrides === "object") setDraftOverrides(state.overrides);
 					setReasoningNote({
 						tone: state.changed > 0 ? "ok" : null,
-						text: state.changed > 0 ? t("reasoningApplied") + changedProfiles(state.written) : t("reasoningUnchanged"),
+						text: state.changed > 0 ? t("reasoningApplied") + changedProfiles(state.written) + skippedModels(state.skipped) : t("reasoningUnchanged"),
 					});
 				}, (error) => setReasoningNote({ tone: "error", text: t("reasoningFailed") + String((error && error.message) || error) })).then(() => setReasoningBusy(false));
 			};
@@ -1232,7 +1295,6 @@ window.__ModuleLoader__.load({
 					),
 				),
 				React.createElement("p", { className: "dshmh-desc" }, t("desc")),
-				React.createElement("p", { className: "dshmh-note" }, t("autoRefreshNote")),
 				update !== null && update.hasUpdate === true ? React.createElement("button", { type: "button", className: "dshmh-note dshmh-update dshmh-updatebtn", onClick: () => setUpdateDialog(true) },
 					React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }),
 					React.createElement("span", null, t("updateNew") + " v" + String(update.latest)),
@@ -1259,6 +1321,13 @@ window.__ModuleLoader__.load({
 						React.createElement("span", { className: "dshmh-label" }, t("reasoningProviders"))),
 					React.createElement("span", { className: "dshmh-side dshmh-actions" }, reasoningButton, reloadReasoningButton)),
 				...providerRows,
+				autoFillRow,
+				React.createElement(ToggleRow, {
+					label: t("hideDefaultEffortLabel"),
+					hint: t("hideDefaultEffortHint"),
+					checked: prefs.hideDefaultEffort === true,
+					onChange: toggle("hideDefaultEffort"),
+				}),
 				reasoningNote === null ? null : React.createElement("p", { className: "dshmh-hint", "data-tone": reasoningNote.tone ?? undefined, role: "status" }, reasoningNote.text),
 				providers.length > 0 ? null : React.createElement("p", { className: "dshmh-hint" }, t("reasoningEmpty")),
 
@@ -1267,8 +1336,7 @@ window.__ModuleLoader__.load({
 						React.createElement("span", { className: "dshmh-label" }, t("shellLabel")),
 						React.createElement("span", { className: "dshmh-hint" }, t("shellHint")),
 						shellState === "" ? null : React.createElement("span", { className: "dshmh-hint", "data-tone": shellPatched ? "ok" : undefined }, shellState),
-						note === null ? null : React.createElement("span", { className: "dshmh-hint", "data-tone": note.tone ?? undefined, role: "status" }, note.text),
-						React.createElement("span", { className: "dshmh-hint" }, t("shellRestartHint"))),
+						note === null ? null : React.createElement("span", { className: "dshmh-hint", "data-tone": note.tone ?? undefined, role: "status" }, note.text)),
 					React.createElement("span", { className: "dshmh-side" }, buttons[0], buttons[1])),
 
 				React.createElement("div", { className: "dshmh-row" },
@@ -1372,4 +1440,14 @@ window.__ModuleLoader__.load({
 		// client.js 没有那层壳，所以直接 return 插件对象（cordis 支持 { apply } 形状）。
 		return { name: ID, inject: ["slots", "locale"], apply };
 	},
-});
+	});
+}
+
+try {
+	registerClient();
+} catch (error) {
+	// 同一份字节被重复求值、或 ModuleLoader 认为 id 已注册时，load() 会抛。
+	// 界面其余部分没必要跟着起不来：记一笔，别让整个 web boot 变成 1 entry did not activate。
+	console.warn("[dsh-menu-hidden] client bundle did not register", error);
+}
+

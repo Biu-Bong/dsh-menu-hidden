@@ -18,8 +18,8 @@
  *   POST ?action=status    → 同 GET
  */
 import { spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { LEVELS, applyReasoning, readStatus } from './reasoning.js'
+import { existsSync, readFileSync, statSync, watch } from 'node:fs'
+import { LEVELS, applyReasoning, auditLevels, configFiles as configFilesForWatch, readState as readReasoningState, readStatus } from './reasoning.js'
 import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
@@ -450,16 +450,92 @@ export function apply(ctx, config = {}) {
     }
     let result
     try {
-      result = applyReasoning(global, overrides)
+      result = applyReasoning(global, overrides, typeof body.autoFill === 'boolean' ? { autoFill: body.autoFill } : {})
     } catch (error) {
       send(500, { ok: false, error: `写配置失败：${String((error && error.message) || error)}` })
       return
     }
     info(`reasoning applied: changed=${String(result.changed)} files=${String(result.files.length)}`)
-    send(200, { ok: true, levels: LEVELS, ...readStatus(), changed: result.changed, written: result.files })
+    result.skipped = auditLevels(global, overrides)
+    send(200, { ok: true, levels: LEVELS, ...readStatus(), changed: result.changed, written: result.files, skipped: result.skipped })
   }
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: REASONING_ROUTE, handler: reasoningHandler }), 'dsh-menu-hidden: reasoning route')
+
+  // 配置自愈：新加的供应商 / 新加的模型缺默认档时补上。
+  // 每轮只 stat 两个配置文件（实测 ~0.09ms）；mtime 和大小都没变就直接返回，
+  // 不读文件、不正则、不写盘。真要写的时候走的是和面板「写入配置」同一条路。
+  const fillMarks = new Map()
+  const autoFillOnce = (force) => {
+    const state = readReasoningState()
+    if (state.autoFill === false) return
+    if (state.global === null && Object.keys(state.overrides).length === 0) return
+    if (force !== true) {
+      let touched = false
+      for (const entry of configFilesForWatch()) {
+        try {
+          const info = statSync(entry.file)
+          const mark = String(info.mtimeMs) + ':' + String(info.size)
+          if (fillMarks.get(entry.file) !== mark) {
+            fillMarks.set(entry.file, mark)
+            touched = true
+          }
+        } catch {
+          touched = true
+        }
+      }
+      if (!touched) return
+    }
+    try {
+      const result = applyReasoning(state.global, state.overrides, { autoFill: state.autoFill })
+      if (result.changed > 0) info('auto-fill: ' + String(result.changed) + ' line(s) written')
+    } catch (error) {
+      info('auto-fill failed: ' + describe(error))
+    }
+  }
+  let fillDebounce = null
+  const scheduleFill = () => {
+    if (fillDebounce !== null) clearTimeout(fillDebounce)
+    fillDebounce = setTimeout(() => {
+      fillDebounce = null
+      autoFillOnce(false)
+    }, 1500)
+    if (typeof fillDebounce.unref === 'function') fillDebounce.unref()
+  }
+
+  ctx.effect(() => {
+    autoFillOnce(true)
+
+    // 主通道：盯每个 profile 目录。DSH 写配置是「临时文件 + rename」，
+    // 目录级的 rename 事件不会丢（盯单个文件才会，rename 之后句柄就废了）。
+    const watchers = []
+    const watched = new Set()
+    for (const entry of configFilesForWatch()) {
+      const dir = dirname(entry.file)
+      if (watched.has(dir)) continue
+      watched.add(dir)
+      try {
+        const watcher = watch(dir, { persistent: false }, () => { scheduleFill() })
+        if (typeof watcher.unref === 'function') watcher.unref()
+        watchers.push(watcher)
+      } catch (error) {
+        info('auto-fill watch failed: ' + describe(error))
+      }
+    }
+
+    // 兜底：60 秒 stat 一次（两个文件、不读内容），事件通道挂了也能补上。
+    const poll = setInterval(() => { autoFillOnce(false) }, 60000)
+    if (typeof poll.unref === 'function') poll.unref()
+
+    return () => {
+      for (const watcher of watchers) {
+        try { watcher.close() } catch { /* 已经关了 */ }
+      }
+      clearInterval(poll)
+      if (fillDebounce !== null) { clearTimeout(fillDebounce); fillDebounce = null }
+    }
+  }, 'dsh-menu-hidden: reasoning auto-fill')
+
 
   const updateHandler = async (request, response) => {
     const send = (code, body) => {

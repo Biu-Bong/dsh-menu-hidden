@@ -46,9 +46,9 @@ export function readState() {
       if (value === null) overrides[id] = null
       else if (typeof value === 'string' && LEVELS.includes(value)) overrides[id] = value
     }
-    return { global, overrides }
+    return { global, overrides, autoFill: parsed.autoFill !== false }
   } catch {
-    return { global: null, overrides: {} }
+    return { global: null, overrides: {}, autoFill: true }
   }
 }
 
@@ -210,6 +210,136 @@ export function applyToText(text, global, overrides) {
  * @param {string} text - 文件内容（已统一成 \n）。
  * @returns {{ id: string, displayName: string, reasoning: string | null }[]} 列表。
  */
+/**
+ * 把 provider 的默认档补进每个模型的 reasoningEfforts。
+ *
+ * DSH 只在模型的 reasoningEfforts 里声明过某档时，才把 provider 的 reasoning 当成这个
+ * 模型的默认档；没声明就静默退回 Default，而不少中转站把「没指定」当成关掉思考。
+ * 所以「这个供应商默认 high」必须落到模型级的声明上，这一步就是补这个洞。
+ *
+ * 只加不改：已经声明过的档、没有 reasoningEfforts 的非推理模型，一律不碰。
+ * @param {string} text - 文件内容（\n 分隔）。
+ * @param {string | null} global - 全局默认档。
+ * @param {Record<string, string | null>} overrides - provider 覆盖表。
+ * @returns {{ text: string, changed: number, added: { provider: string, model: string, level: string }[] }} 结果。
+ */
+export function fillMissingToText(text, global, overrides) {
+  const lines = text.split('\n')
+  const located = locate(lines)
+  if (located === null) return { text, changed: 0, added: [] }
+  const added = []
+  for (const block of [...located.blocks].reverse()) {
+    const level = Object.prototype.hasOwnProperty.call(overrides, block.id) ? overrides[block.id] : global
+    if (level === null || level === undefined || level === '') continue
+    const value = level === 'off' ? 'null' : level
+    const modelIndent = block.indent + 4
+    const models = []
+    for (let i = block.keyLine + 1; i < block.end; i += 1) {
+      const match = /^(\s*)- id:\s*(\S+)\s*$/.exec(lines[i])
+      if (match !== null && match[1].length === modelIndent) models.push({ id: match[2], at: i })
+    }
+    for (const model of [...models].reverse()) {
+      let end = block.end
+      for (let j = model.at + 1; j < block.end; j += 1) {
+        if (lines[j].trim() === '') continue
+        if (lines[j].match(/^\s*/)[0].length <= modelIndent) {
+          end = j
+          break
+        }
+      }
+      let effortsAt = -1
+      for (let j = model.at + 1; j < end; j += 1) {
+        if (/^\s*reasoningEfforts:\s*$/.test(lines[j])) {
+          effortsAt = j
+          break
+        }
+      }
+      if (effortsAt < 0) continue
+      const effortsIndent = lines[effortsAt].match(/^\s*/)[0].length
+      let declared = false
+      let insertAt = effortsAt + 1
+      for (let j = effortsAt + 1; j < end; j += 1) {
+        if (lines[j].trim() === '') continue
+        if (lines[j].match(/^\s*/)[0].length <= effortsIndent) break
+        insertAt = j + 1
+        if (new RegExp('^\\s*' + level + ':').test(lines[j])) {
+          declared = true
+          break
+        }
+      }
+      if (declared) continue
+      lines.splice(insertAt, 0, ' '.repeat(effortsIndent + 2) + level + ': ' + value)
+      added.push({ provider: block.id, model: model.id, level })
+    }
+  }
+  return { text: lines.join('\n'), changed: added.length, added }
+}
+
+/**
+ * 核对「每个模型真的吃得到这一档吗」。
+ * DSH 只在模型的 reasoningEfforts 里声明过该档时，才会把它当成默认档；
+ * 没声明的模型会静默退回 Default，界面上看着像「没生效」。
+ * @param {string | null} global - 全局默认档。
+ * @param {Record<string, string | null>} overrides - provider 覆盖表。
+ * @returns {{ profile: string, provider: string, level: string, model: string, declared: string[] }[]} 吃不到该档的模型。
+ */
+export function auditLevels(global, overrides) {
+  const rows = []
+  for (const entry of configFiles()) {
+    let text
+    try {
+      text = readFileSync(entry.file, 'utf8')
+    } catch {
+      continue
+    }
+    const lines = text.split(/\r?\n/)
+    let provider = null
+    let model = null
+    let declared = []
+    let inEfforts = false
+    const flush = () => {
+      if (provider === null || model === null || declared.length === 0) return
+      const level = overrides[provider] === undefined ? global : overrides[provider]
+      if (level === null || level === undefined || level === '') return
+      if (declared.includes(level)) return
+      rows.push({ profile: entry.profile, provider, level, model, declared: [...declared] })
+    }
+    for (const line of lines) {
+      const providerId = /^ {6}([A-Za-z0-9_.-]+):\s*$/.exec(line)
+      if (providerId !== null) {
+        flush()
+        provider = providerId[1]
+        model = null
+        declared = []
+        inEfforts = false
+        continue
+      }
+      const modelId = /^ {10}- id:\s*(\S+)\s*$/.exec(line)
+      if (modelId !== null) {
+        flush()
+        model = modelId[1]
+        declared = []
+        inEfforts = false
+        continue
+      }
+      if (/^ {12}reasoningEfforts:\s*$/.test(line)) {
+        inEfforts = true
+        continue
+      }
+      if (inEfforts) {
+        const level = /^ {14}([a-z]+):/.exec(line)
+        if (level !== null) {
+          declared.push(level[1])
+          continue
+        }
+        if (/^ {12}\S/.test(line)) inEfforts = false
+      }
+    }
+    flush()
+  }
+  return rows
+}
+
 export function parseProviders(text) {
   const lines = text.split('\n')
   const located = locate(lines)
@@ -251,7 +381,7 @@ export function readStatus() {
       if (!merged.has(provider.id)) merged.set(provider.id, { ...provider, profile: entry.profile })
     }
   }
-  return { global: state.global, overrides: state.overrides, files, providers: [...merged.values()] }
+  return { global: state.global, overrides: state.overrides, autoFill: state.autoFill, files, providers: [...merged.values()] }
 }
 
 /**
@@ -260,7 +390,7 @@ export function readStatus() {
  * @param {Record<string, string | null>} overrides - 每个 provider 的覆盖。
  * @returns {{ ok: boolean, changed: number, files: { profile: string, file: string, changed: number, providers: object[] }[] }} 结果。
  */
-export function applyReasoning(global, overrides) {
+export function applyReasoning(global, overrides, extra = {}) {
   const files = configFiles()
   const written = []
   let changed = 0
@@ -268,7 +398,9 @@ export function applyReasoning(global, overrides) {
     const raw = readFileSync(entry.file, 'utf8')
     const crlf = raw.includes('\r\n')
     const normalized = crlf ? raw.split('\r\n').join('\n') : raw
-    const result = applyToText(normalized, global, overrides)
+    const applied = applyToText(normalized, global, overrides)
+    const filled = fillMissingToText(applied.text, global, overrides)
+    const result = { text: filled.text, changed: applied.changed + filled.changed, providers: applied.providers }
     if (result.changed > 0) {
       const backup = `${entry.file}.menuhidden.bak`
       if (!existsSync(backup)) writeFileSync(backup, raw, 'utf8')
@@ -287,6 +419,11 @@ export function applyReasoning(global, overrides) {
     changed += result.changed
     written.push({ profile: entry.profile, file: entry.file, changed: result.changed, providers: result.providers })
   }
-  saveState({ global, overrides })
-  return { ok: true, changed, files: written }
+  const previous = readState()
+  const autoFill = typeof extra.autoFill === 'boolean' ? extra.autoFill : previous.autoFill
+  const same = previous.global === global && previous.autoFill === autoFill &&
+    Object.keys(previous.overrides).length === Object.keys(overrides).length &&
+    Object.entries(overrides).every(([id, value]) => previous.overrides[id] === value)
+  if (!same) saveState({ global, overrides, autoFill })
+  return { ok: true, changed, files: written, autoFill }
 }
