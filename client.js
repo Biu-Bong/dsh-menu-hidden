@@ -18,7 +18,7 @@
 
 window.__ModuleLoader__.load({
 	// factory id 必须等于 package.json 的包名，否则 boot 图里找不到 factory。
-	id: "@local/dsh-menu-hidden",
+	id: "dsh-menu-hidden",
 	factory: (require) => {
 		const React = require("react");
 

@@ -264,7 +264,7 @@ dsh plugin --profile desktop remove dsh-menu-hidden
 
 ## 排障：0.1.0 重启后打不开
 
-0.1.0 有个致命 bug，症状是**装完重启 DSH 起不来**。崩溃日志长这样（Windows 上在 `%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*-web-boot.log`，本机实体是 `D:\DeepSeek\cache\electron\dsh-desktop\logs`）：
+0.1.0 有个致命 bug，症状是**装完重启 DSH 起不来**。崩溃日志长这样（Windows 上在 `%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*-web-boot.log`）：
 
 ```text
 phase: running
