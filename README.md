@@ -114,23 +114,24 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 
 | 功能 | 桌面版 | `dsh web` |
 |---|---|---|
-| 1 / 2 / 3 / 4 / 6 / 7（模型下拉框、设置·模型、账号菜单那六条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
+| 1 / 2 / 3 / 4 / 6 / 7 / 8（模型下拉框、设置·模型、账号菜单、子智能体那七条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
 | 推理等级（写 profile 的 reasoning） | ✅ 走本机路由写文件，热读生效 | ✅ 同左 |
 | 5（应用菜单「刷新页面 / 重启应用与 Host」） | ✅ 点「写入补丁」+ 重启应用 | — 浏览器里没有原生应用菜单 |
 
 为什么 web 端也能跑：客户端半用的是 Web UI 的 DOM 和 slot，`package.json` 里 `dsh.client.platform` 就是 `"web"`，桌面版加载的也是同一套 Web 前端；宿主半只要求 `webServer` 服务，`web` profile 里也有。第 5 条走的是 Electron 主进程的 `Menu.buildFromTemplate(...).popup()`，浏览器里没有承载物——这种环境下宿主半找不到 `lib/main.js`，设置页那一行会显示「没找到外壳文件」，点按钮只会回一句说明，不会动到任何文件。
 
-## 七条功能与实现
+## 八条功能与实现
 
 | # | 效果 | 实现方式 | 生效时机 |
 |---|---|---|---|
 | 1 | 模型选择框里隐藏「DeepSeek 账号」分组 | 客户端 DOM：`section[data-menu-group]` 按标题文字整组隐藏 | 立刻 |
-| 2 | 模型选择框里隐藏「DeepSeek」（官方 API）分组 | 同上 | 立刻 |
+| 2 | 模型选择框里隐藏「DeepSeek官方 API」分组 | 同上 | 立刻 |
 | 3 | 设置 · 模型里隐藏「DeepSeek 账号」**整行** | 客户端 DOM：按行名隐藏整个 `<li>`（编辑 / 删除一起走）；首屏另用 `li[class*="_rowCard"]:has([class*="_accountStatus"])` 的 CSS 预藏，绘制前就没了 | 立刻 |
-| 4 | 设置 · 模型里隐藏「DeepSeek」官方 API 那一行 | 客户端 DOM：隐藏该行 `<li>` | 立刻 |
+| 4 | 设置 · 模型里隐藏「DeepSeek官方 API」那一行 | 客户端 DOM：隐藏该行 `<li>` | 立刻 |
 | 5 | 应用菜单「退出」上方加「刷新页面」「重启应用与 Host」 | 宿主半：给 `lib/main.js` 的 `applicationItems()` 打开官方留着的 `development` 门（幂等、留备份 `.menuhidden.bak`、可还原） | 改完**重启一次应用** |
 | 6 | 账号菜单里隐藏「意见反馈」 | 客户端 DOM：按文字认菜单项，藏掉（只剩它一个时连容器一起藏） | 立刻 |
 | 7 | 账号菜单里隐藏「退出登录」 | 同上，另一个开关各管一项；两项都藏时菜单只剩「设置」 | 立刻 |
+| 8 | 子智能体的模型选择里隐藏「DeepSeek Account」「DeepSeek 官方 API」两组 | 客户端 DOM：`[class*="_providerName"]` 认供应商名，藏掉外层 `[class*="_modelGroup"]`（两个开关，都在「模型选择框」组里） | 立刻 |
 
 ## 为什么不会闪
 
@@ -200,13 +201,13 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 
 ## 设置页
 
-设置 → 菜单隐藏：四个并列标题 + 六个开关 + 两个按钮。
+设置 → 菜单隐藏：四个并列标题 + 八个开关 + 两个按钮。
 
-- **模型选择框**：两开关，隐藏下拉框里的「DeepSeek 账号」分组 / 「DeepSeek」官方 API 分组。
+- **模型选择框**：四开关 —— 下拉框里的「DeepSeek 账号」分组 / 「DeepSeek官方 API」分组，以及子智能体「Agent 可选择的模型」列表里的「DeepSeek Account」/「DeepSeek 官方 API」两组。
 - **设置 · 模型**：两开关，隐藏设置页里的账号整行 / 官方 API 整行。
 - **账号菜单**：两开关，隐藏右下角头像菜单里的「意见反馈」/「退出登录」。
 - **推理等级**：全局默认 + 按供应商覆盖，写入 profile 配置；面板重新获得焦点会自动重读，也能点「重新读取」。
-- 六个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
+- 八个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
 - 「应用菜单」那一行显示外壳状态（已写入 / 未改动 / 没找到文件）+ 写入 / 还原按钮。
 - 最后一行「现在刷新一次界面」，等同应用菜单里的「刷新页面」。
 
@@ -221,6 +222,7 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 | 设置·模型 行名 | `[class*="_rowName"]`（Vite CSS Modules 的 `_hash_rowName`） | 用后缀，换版本不失效 |
 | 已登录徽标 | `[class*="_accountStatus"]` | 同上 |
 | 账号菜单项 | `[role="menuitem"]` 且文字是 `意见反馈` / `Feedback` | 官方菜单没有 data 属性，只能按文字 |
+| 子智能体的供应商分组 | `[class*="_modelGroup"]` 里的 `[class*="_providerName"]`，文字是 provider displayName | 同上用类名后缀；分组标题就是供应商名，不是 locale 文案 |
 
 找不到就安静跳过，不抛错、不碰别的地方；三个 sweep 步骤各自 try/catch，一处结构变了不影响另外两处。
 

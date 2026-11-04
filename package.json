@@ -1,7 +1,7 @@
 {
   "name": "@local/dsh-menu-hidden",
-  "version": "0.2.4",
-  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口，隐掉设置里的那两行、账号菜单的「意见反馈」与「退出登录」，给应用菜单补上「刷新页面」「重启应用与 Host」，并统一写模型供应商的推理等级。开关存在本机，改完立即生效。Hide the duplicate DeepSeek account / official API entries, the two rows in Settings, and the Feedback / Sign out items of the account menu, add Reload / Restart to the application menu, and set reasoning levels for model providers. Toggles apply instantly.",
+  "version": "0.2.5",
+  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口（模型下拉框、设置·模型、子智能体的模型选择），隐掉账号菜单的「意见反馈」与「退出登录」，给应用菜单补上「刷新页面」「重启应用与 Host」，并统一写模型供应商的推理等级。开关存在本机，改完立即生效。Hide the duplicate DeepSeek account / official API entries across the model picker, Settings and the Subagent model list, hide the Feedback / Sign out items of the account menu, add Reload / Restart to the application menu, and set reasoning levels for model providers. Toggles apply instantly.",
   "keywords": [
     "dsh",
     "deepseek-harness",

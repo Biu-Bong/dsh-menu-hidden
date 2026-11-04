@@ -9,6 +9,12 @@ const html = `<!doctype html><html><body>
   <li class="h1_rowCard" id="openaiRow"><div class="h1_rowHead"><span class="h1_rowIdentity"><span class="h1_rowName">OpenAI</span></span></div></li>
 </ul>
 <div id="menuHost"></div>
+<fieldset class="s1_models" id="subagentList">
+  <legend>Agent 可选择的模型</legend>
+  <div class="s1_modelGroup" id="sgAccount"><div class="s1_providerName">DeepSeek Account</div><label class="s1_model"><input type="checkbox" checked>DeepSeek-V4-Pro</label></div>
+  <div class="s1_modelGroup" id="sgOfficial"><div class="s1_providerName">DeepSeek 官方 API</div><label class="s1_model"><input type="checkbox">DeepSeek-V4.1-Flash</label></div>
+  <div class="s1_modelGroup" id="sgOpenai"><div class="s1_providerName">OpenAI</div><label class="s1_model"><input type="checkbox">GPT 6 Astra</label></div>
+</fieldset>
 <div id="acctMenu" role="menu" data-menu-material>
   <div role="presentation"><button role="menuitem">设置</button></div>
   <div role="presentation"><button role="menuitem">意见反馈</button></div>
@@ -73,6 +79,9 @@ const before = {
   signOut: window.document.querySelectorAll('[role="menuitem"]')[2].style.display === 'none',
   settingsKept: window.document.querySelectorAll('[role="menuitem"]')[0].style.display !== 'none',
   slot: registered.map((r) => r.id).join(','),
+  subagentAccount: hidden('sgAccount'),
+  subagentOfficial: hidden('sgOfficial'),
+  subagentOpenai: hidden('sgOpenai'),
 }
 
 // 再往菜单里追加一组，验证观察器同步生效（模拟点开菜单）

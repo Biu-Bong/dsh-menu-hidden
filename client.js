@@ -51,11 +51,15 @@ window.__ModuleLoader__.load({
 				groupSettings: "设置 · 模型",
 				accountGroupLabel: "隐藏「DeepSeek 账号」分组",
 				accountGroupHint: "模型下拉框里那个带账号图标的分组，连它的模型一起藏。",
-				officialGroupLabel: "隐藏「DeepSeek」官方 API 分组",
+				subagentAccountLabel: "隐藏子智能体里的「DeepSeek Account」",
+				subagentAccountHint: "子智能体的模型选择里，「Agent 可选择的模型」那一块按供应商分组，这里藏掉 DeepSeek Account 那一组。",
+				subagentOfficialLabel: "隐藏子智能体里的「DeepSeek 官方 API」",
+				subagentOfficialHint: "同一个列表里的 DeepSeek 官方 API 那一组，连它的模型一起藏。",
+				officialGroupLabel: "隐藏「DeepSeek官方 API」分组",
 				officialGroupHint: "模型下拉框里官方 API 那一组。两组都关掉，下拉框会只剩第三方模型。",
 				accountRowLabel: "隐藏「DeepSeek 账号」选项卡",
 				accountRowHint: "设置 · 模型里账号那一条整行消失，右边的编辑 / 删除一起走 —— 不是只藏「已登录」三个字。",
-				officialRowLabel: "隐藏「DeepSeek」官方 API 选项卡",
+				officialRowLabel: "隐藏「DeepSeek官方 API」选项卡",
 				officialRowHint: "设置 · 模型里只留一个 DeepSeek 账号，不再出现第二个 DeepSeek 行。整行藏掉后，改官方 API 的入口也一起没了。",
 				groupReasoning: "推理等级",
 				reasoningDesc: "给每个模型供应商写一行 reasoning，中转站后台才显示得出推理等级；不写那边只画一道杠。",
@@ -100,11 +104,15 @@ window.__ModuleLoader__.load({
 				groupSettings: "Settings · Models",
 				accountGroupLabel: "Hide the \"DeepSeek Account\" group",
 				accountGroupHint: "The account group at the top of the model dropdown, models included.",
-				officialGroupLabel: "Hide the \"DeepSeek\" official API group",
+				subagentAccountLabel: "Hide \"DeepSeek Account\" in the Subagent model list",
+				subagentAccountHint: "The Subagent settings page lists allowed models by provider; this hides the DeepSeek Account group, models included.",
+				subagentOfficialLabel: "Hide \"DeepSeek official API\" in the Subagent model list",
+				subagentOfficialHint: "The same list\u2019s DeepSeek official API group, models included.",
+				officialGroupLabel: "Hide the \"DeepSeek official API\" group",
 				officialGroupHint: "The official API group in the model dropdown. Hiding both leaves only third-party models.",
 				accountRowLabel: "Hide the \"DeepSeek Account\" tab",
 				accountRowHint: "The entire row disappears from the Models page, buttons included — not just the Signed in text.",
-				officialRowLabel: "Hide the \"DeepSeek\" official API tab",
+				officialRowLabel: "Hide the \"DeepSeek official API\" tab",
 				groupReasoning: "Reasoning level",
 				reasoningDesc: "Writes one reasoning line per provider so the relay dashboard can show a reasoning level instead of a dash.",
 				reasoningGlobal: "Global default",
@@ -149,6 +157,8 @@ window.__ModuleLoader__.load({
 		const DEFAULTS = {
 			accountGroup: true,
 			officialGroup: true,
+			subagentAccount: true,
+			subagentOfficial: true,
 			accountRow: true,
 			officialRow: true,
 			feedback: true,
@@ -181,7 +191,10 @@ window.__ModuleLoader__.load({
 		/** 模型下拉框里账号分组的标题：官方 t("provider.account")。 */
 		const ACCOUNT_GROUP_LABELS = ["DeepSeek 账号", "DeepSeek Account"];
 		/** 官方 API 分组的标题就是 provider 的 displayName。 */
-		const OFFICIAL_GROUP_LABELS = ["DeepSeek"];
+		const OFFICIAL_GROUP_LABELS = ["DeepSeek", "DeepSeek 官方 API", "DeepSeek 官方API", "DeepSeek Official API"];
+		/** 子智能体设置页里按供应商分的组：标题是 provider 的 displayName。 */
+		const SUBAGENT_ACCOUNT_LABELS = ["deepseekaccount", "deepseek账号"];
+		const SUBAGENT_OFFICIAL_LABELS = ["deepseek官方api", "deepseekofficialapi"];
 		/** 设置 · 模型页的 provider 行名。 */
 		const ACCOUNT_ROW_LABELS = ["DeepSeek 账号", "DeepSeek Account"];
 		const OFFICIAL_ROW_LABELS = ["DeepSeek"];
@@ -194,6 +207,9 @@ window.__ModuleLoader__.load({
 		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
 		const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 		const ACCOUNT_BADGE_SELECTOR = '[class*="_accountStatus"]';
+		/** 子智能体设置页的供应商分组（Vite CSS Modules：_hash_modelGroup / _hash_providerName）。 */
+		const SUBAGENT_GROUP_SELECTOR = '[class*="_modelGroup"]';
+		const SUBAGENT_PROVIDER_SELECTOR = '[class*="_providerName"]';
 
 		// ── §4 隐藏 / 还原 ────────────────────────────────────────────────────
 		/**
@@ -262,6 +278,20 @@ window.__ModuleLoader__.load({
 			}
 		}
 
+		/** 子智能体设置页：按供应商标题认，连标题带模型整组藏。 */
+		function sweepSubagentModels(root) {
+			const norm = (text) => text.replace(/[\s\u3000]+/g, "").toLowerCase();
+			const names = root.matches(SUBAGENT_PROVIDER_SELECTOR) ? [root, ...root.querySelectorAll(SUBAGENT_PROVIDER_SELECTOR)] : [...root.querySelectorAll(SUBAGENT_PROVIDER_SELECTOR)];
+			for (const name of names) {
+				const text = (name.textContent ?? "").trim();
+				const group = name.closest(SUBAGENT_GROUP_SELECTOR);
+				if (group === null) continue;
+				const key = norm(text);
+				if (matches(SUBAGENT_ACCOUNT_LABELS, key)) setHidden(group, prefs.subagentAccount === true);
+				else if (matches(SUBAGENT_OFFICIAL_LABELS, key)) setHidden(group, prefs.subagentOfficial === true);
+			}
+		}
+
 		/** 账号菜单：藏「意见反馈」，连带把只剩它一个的容器一起藏，别留孤零零的分隔线。 */
 		function sweepAccountMenu(root) {
 			const items = root.matches(MENU_ITEM_SELECTOR) ? [root, ...root.querySelectorAll(MENU_ITEM_SELECTOR)] : [...root.querySelectorAll(MENU_ITEM_SELECTOR)];
@@ -291,7 +321,7 @@ window.__ModuleLoader__.load({
 		function sweepRoot(root) {
 			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
-			for (const step of [sweepModelMenu, sweepSettingsRows, sweepAccountMenu]) {
+			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu]) {
 				try {
 					step(root);
 				} catch (error) {
@@ -742,6 +772,8 @@ window.__ModuleLoader__.load({
 			const rows = [
 				["accountGroup", "accountGroupLabel", "accountGroupHint"],
 				["officialGroup", "officialGroupLabel", "officialGroupHint"],
+				["subagentAccount", "subagentAccountLabel", "subagentAccountHint"],
+				["subagentOfficial", "subagentOfficialLabel", "subagentOfficialHint"],
 			].map(([key, label, hint]) => React.createElement(ToggleRow, {
 				key,
 				label: t(label),
