@@ -1,7 +1,7 @@
 {
   "name": "dsh-menu-hidden",
-  "version": "0.2.15",
-  "description": "收起 DSH 界面里重复的 DeepSeek 账号 / 官方 API 入口（模型下拉框、设置·模型、子智能体的模型选择），隐掉账号菜单的「意见反馈」与「退出登录」，给应用菜单补上「刷新页面」「重启应用与 Host」，并统一写模型供应商的推理等级。开关存在本机，改完立即生效。Hide the duplicate DeepSeek account / official API entries across the model picker, Settings and the Subagent model list, hide the Feedback / Sign out items of the account menu, add Reload / Restart to the application menu, and set reasoning levels for model providers. Toggles apply instantly.",
+  "version": "0.2.17",
+  "description": "添加重启和刷新菜单；侧边栏项目、官方模型分组、重复选项卡一键隐藏，可改默认推理等级（避免中转站取不到推理强度）。",
   "keywords": [
     "dsh",
     "deepseek-harness",
@@ -19,14 +19,20 @@
     "./client": {
       "default": "./client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./icon": {
+      "default": "./icon.svg"
+    },
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "index.js",
     "client.js",
+    "reasoning.js",
     "cordis.patch.yml",
     "README.md",
-    "reasoning.js"
+    "icon.svg",
+    "locale/*.json"
   ],
   "engines": {
     "node": ">=20",
@@ -43,5 +49,7 @@
       ]
     }
   },
-  "license": "MIT"
+  "license": "MIT",
+  "descriptionEn": "Add Reload and Restart to the app menu; hide sidebar items, official model groups and duplicate tabs in one switch; set the default reasoning level so relays that report no reasoning strength still show one.",
+  "icon": "./icon.svg"
 }

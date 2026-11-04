@@ -15,7 +15,7 @@ globalThis.window = {
       loaded = { id, module: factory(stub) }
     },
   },
-  location: { reload() {}, origin: 'http://127.0.0.1:1' },
+  location: { reload() {}, origin: 'http://example.invalid' },
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
   document: undefined,
 }

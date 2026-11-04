@@ -18,7 +18,7 @@ async function run(userAgent) {
   const vc = new VirtualConsole()
   vc.on('jsdomError', (e) => { if (String(e.message).includes('navigation')) navs.push(String(e.message)) })
   const dom = new JSDOM('<!doctype html><html><body><div id="app"></div></body></html>', {
-    url: 'http://127.0.0.1:1/', pretendToBeVisual: true, virtualConsole: vc,
+    url: 'http://example.invalid/', pretendToBeVisual: true, virtualConsole: vc,
   })
   const { window } = dom
   for (const k of ['window', 'document', 'HTMLElement', 'Element', 'Node', 'MutationObserver', 'localStorage', 'getComputedStyle', 'requestAnimationFrame']) {

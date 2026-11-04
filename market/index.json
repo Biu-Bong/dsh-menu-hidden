@@ -49,8 +49,8 @@
         "en": "Menu Hiding"
       },
       "description": {
-        "zh": "收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口、设置里那两行、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启，并统一写供应商的推理等级。",
-        "en": "Hide the duplicate DeepSeek account / official API entries, the two Settings rows and the Feedback / Sign out items, add Reload / Restart to the application menu, and set reasoning levels for providers."
+        "zh": "添加「重启 / 刷新」菜单，侧边栏项目、官方模型分组、重复选项卡一键隐藏；还能改默认推理等级，避免 API 中转站获取不到推理强度。",
+        "en": "Adds Reload and Restart to the application menu, hides the sidebar items, the official model groups and the duplicate tabs in one switch, and sets the default reasoning level so API relays that report no reasoning strength still show one."
       },
       "icon": "icon.svg",
       "author": "Biu-Bong",

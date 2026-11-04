@@ -6,6 +6,7 @@
 // 索引里每个版本的 source 都是 git，commit 钉死到该版本的提交，
 // 所以装的是确定的那一版，不是「main 的最新状态」。
 import fs from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 
@@ -74,13 +75,25 @@ const index = {
 }
 
 // 自校验：用 DSH 自带的校验器过一遍，过不了就别发布。
+// 安装位置因机器而异，所以按环境变量 + 常见安装位逐个试，最后退回裸包名。
+const validatorCandidates = []
+for (const base of [process.env.DSH_INSTALL_DIR, process.env.DSH_APP_DIR]) {
+  if (typeof base === 'string' && base.length > 0) {
+    validatorCandidates.push(`${base}/resources/app/dsh/node_modules/@deepseek-ai/dsh-plugin-market-index/lib/index.js`)
+  }
+}
+for (const base of [process.env.LOCALAPPDATA, process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)']]) {
+  if (typeof base === 'string' && base.length > 0) {
+    validatorCandidates.push(`${base}/Programs/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-plugin-market-index/lib/index.js`)
+    validatorCandidates.push(`${base}/DeepSeek Harness/resources/app/dsh/node_modules/@deepseek-ai/dsh-plugin-market-index/lib/index.js`)
+  }
+}
+validatorCandidates.push('@deepseek-ai/dsh-plugin-market-index')
+
 let validator
-for (const candidate of [
-  'D:/DeepSeekApp/resources/app/dsh/node_modules/@deepseek-ai/dsh-plugin-market-index/lib/index.js',
-  '@deepseek-ai/dsh-plugin-market-index',
-]) {
+for (const candidate of validatorCandidates) {
   try {
-    validator = await import(candidate.startsWith('@') ? candidate : new URL(`file:///${candidate}`).href)
+    validator = await import(candidate.startsWith('@') ? candidate : pathToFileURL(candidate).href)
     break
   } catch {
     /* 下一个 */

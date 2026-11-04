@@ -9,7 +9,7 @@ if (file === undefined) {
   console.error('用法: node test/locale.mjs <client.js 路径>')
   process.exit(1)
 }
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://127.0.0.1:1/', pretendToBeVisual: true })
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://example.invalid/', pretendToBeVisual: true })
 for (const k of ['window', 'document', 'HTMLElement', 'Element', 'Node', 'MutationObserver', 'localStorage', 'getComputedStyle', 'requestAnimationFrame']) globalThis[k] = dom.window[k]
 
 function makeLocale(active) {

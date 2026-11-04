@@ -11,7 +11,7 @@ const html = `<!doctype html><html><body>
 </fieldset>
 </body></html>`
 
-const dom = new JSDOM(html, { url: 'http://127.0.0.1:1/' })
+const dom = new JSDOM(html, { url: 'http://example.invalid/' })
 const { window } = dom
 globalThis.window = window
 globalThis.document = window.document

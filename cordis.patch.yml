@@ -6,5 +6,5 @@
 # 否则 boot 会因为重复的 loader entry id 失败。
 - insert:
     - id: dsh-menu-hidden
-      name: "dsh-menu-hidden"
+      name: dsh-menu-hidden
       config: {}
