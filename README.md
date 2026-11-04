@@ -1,8 +1,8 @@
 # dsh-menu-hidden · 菜单隐藏
 
-DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API 入口**收起来，账号菜单里用不上的两项也一起收，顺手给应用菜单补上「刷新页面」「重启应用与 Host」，再给模型供应商统一写推理等级。
+DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API 入口**收起来（包括子智能体那份），账号菜单里用不上的两项也一起收，侧边栏那排用不上的图标也收，顺手给应用菜单补上「刷新页面」「重启应用与 Host」，再给模型供应商统一写推理等级，并自带一个更新检查。
 
-开关在 **设置 → 菜单隐藏**：六个开关翻一下立刻生效，不用刷新页面；外壳那两项写入后重启一次应用。
+开关在 **设置 → 菜单隐藏**：十二个开关翻一下立刻生效，不用刷新页面；外壳那两项写入后重启一次应用。
 
 ## 效果
 
@@ -16,9 +16,21 @@ DeepSeek Harness 插件。把界面上**重复的 DeepSeek 账号 / 官方 API �
 
 <p><img src="docs/settings-models-before.png" width="430"> <img src="docs/settings-models-after.png" width="430"></p>
 
-**设置 → 菜单隐藏**（插件自己的页面：模型选择框 / 设置 · 模型 / 账号菜单 / 推理等级，四组并列）
+```
+菜单隐藏  v0.2.15                [ GitHub ] [ 问题反馈 ] [ ✓ 已是最新 ]
+```
+
+**设置 → 菜单隐藏**（插件自己的页面：模型选择框 / 设置 · 模型 / 侧边栏 / 账号菜单 / 推理等级，五组并列）
 
 <p><img src="docs/settings-plugin.png" width="620"></p>
+
+**检查更新** 左：已是最新（第三颗胶囊变「✓ 已是最新」） 右：有新版本（胶囊带红点 + 标题下多一行）
+
+<p><img src="docs/header-latest.png" width="420"> <img src="docs/header-has-update.png" width="420"></p>
+
+**更新窗口**（点「去下载」或带红点的胶囊打开）
+
+<p><img src="docs/update-dialog.png" width="480"></p>
 
 **应用菜单** 左：装之前 右：写入补丁并重启之后
 
@@ -114,13 +126,14 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 
 | 功能 | 桌面版 | `dsh web` |
 |---|---|---|
-| 1 / 2 / 3 / 4 / 6 / 7 / 8 / 9（模型下拉框、设置·模型、账号菜单、子智能体、侧边栏那八条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
+| 1～4、6～10（模型下拉框、设置·模型、账号菜单、子智能体、侧边栏那九条） | ✅ 翻开关立刻生效 | ✅ 翻开关立刻生效 |
 | 推理等级（写 profile 的 reasoning） | ✅ 走本机路由写文件，热读生效 | ✅ 同左 |
+| 检查更新 / 更新窗口 / 一键更新 | ✅ 本机路由调 CLI 安装 | ⚠️ 能查能看命令，一键更新需要本机有 `dsh` 命令 |
 | 5（应用菜单「刷新页面 / 重启应用与 Host」） | ✅ 点「写入补丁」+ 重启应用 | — 浏览器里没有原生应用菜单 |
 
 为什么 web 端也能跑：客户端半用的是 Web UI 的 DOM 和 slot，`package.json` 里 `dsh.client.platform` 就是 `"web"`，桌面版加载的也是同一套 Web 前端；宿主半只要求 `webServer` 服务，`web` profile 里也有。第 5 条走的是 Electron 主进程的 `Menu.buildFromTemplate(...).popup()`，浏览器里没有承载物——这种环境下宿主半找不到 `lib/main.js`，设置页那一行会显示「没找到外壳文件」，点按钮只会回一句说明，不会动到任何文件。
 
-## 十条功能与实现
+## 十二条功能与实现
 
 | # | 效果 | 实现方式 | 生效时机 |
 |---|---|---|---|
@@ -134,6 +147,8 @@ https://cdn.jsdelivr.net/npm/dsh-plugin-catalog/index.json
 | 8 | 子智能体的模型选择里隐藏「DeepSeek Account」「DeepSeek 官方 API」两组 | 客户端 DOM：按每行副标题里的 provider id（`deepseek-official` / `deepseek-account`）认组，藏掉外层 `[class*="_modelGroup"]`；拿不到 id 才退回标题文字（两个开关，都在「模型选择框」组里） | 立刻 |
 | 9 | 侧边栏那排图标里隐藏「插件」「定时任务」「更多」 | 客户端 DOM：`button[class*="_panelRow"]` 按 `aria-label` 认（收起时没有文字，只剩这个属性），三个开关各管一个 | 立刻 |
 | 10 | 隐藏侧边栏顶部那个「新会话」大按钮 | 客户端 DOM：`button[class*="_newSession"]`，展开是整条按钮、收起是标题栏里的小图标，同一个类名都认 | 立刻 |
+| 11 | 给每个模型供应商写推理等级 | 宿主半：改 `profiles/<名字>/cordis.patch.yml` 里 `llm-pi-ai.models.<id>.reasoning` 一行，原子写 + 备份 + 幂等 | 立刻（配置热读） |
+| 12 | 检查更新 / 弹窗 / 一键更新 | 宿主半 `GET /api/update` 查版本（raw → jsDelivr → GitHub API），`POST ?action=install` 调 `dsh plugin add ...@vX` | 查完立刻 |
 
 ## 为什么不会闪
 
@@ -205,26 +220,21 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 
 设置 → 菜单隐藏：五个并列标题 + 十二个开关 + 两个按钮，最上面一条是项目地址和版本号。
 
-标题行长这样（跟「归档会话」那页一个样子）：
-
-```
-菜单隐藏  v0.2.9                    [ GitHub ]  [ 问题反馈 ]  [ 检查更新 ● ]
-```
-
-- 版本号跟在标题右边，灰色小字。
+标题行跟「归档会话」那页一个样子，一行三块：
+- 版本号跟在标题右边，灰色小字，**常驻**（不等检查更新回来才出现；宽度不够时先省略标题文字，版本号不动）。
 - 三颗胶囊按钮：**GitHub** 打开仓库，**问题反馈** 打开 `issues/new`，**检查更新** 手动查一次。
-- 没有新版本时：版本号右边直接挂一行灰色的「已是最新」，和版本号同字号、同基线，不占额外版面。
-- 有新版本时：**检查更新** 右上角亮一颗红点，标题下面出一行「● 有新版本 vX 去下载」，点它弹出更新对话框。
+- 没有新版本时：第三颗胶囊直接从「检查更新」变成「✓ 已是最新」（换勾图标、不占额外版面、点一下仍可强制重查）。版本号右边不加任何字。
+- 有新版本时：**检查更新** 右上角亮一颗红点，标题下面出一行「● 有新版本 vX　去下载」，点它弹出更新对话框。
 - 更新对话框（照 `归档会话` 那个插件的样子做的）：运行版本 / 最新版本（带橙色「发现新版本」）/ 目标 profile 三行，下面是 **手工更新** 的可复制命令，底部两个按钮 —— **重新检查**、**自动更新**。
   自动更新走宿主路由 `POST /dsh-menu-hidden/api/update?action=install`，用桌面版自带的 `dsh plugin --profile <名字> add github:Biu-Bong/dsh-menu-hidden@vX` 装，成功后提示重启一次。
 
 - 点项目地址用系统浏览器打开仓库（Electron 的 `window.open` 会被拦，脚本里退回 `location.href`，由 `will-navigate` 交给 `shell.openExternal`）。
-- 进设置页时自动查一次；30 分钟内不重复查。有更新就在版本号后面点一个红点，写上最新版本。
+- 进设置页时自动查一次；60 秒内不重复查（`UPDATE_DEDUPE_MS`），结果在宿主里缓存 30 分钟。
 - 版本源顺序：`raw.githubusercontent.com` 上的 `package.json` → jsDelivr 同一份 → GitHub Releases API。**不先用 API**：未登录的 `api.github.com` 按 IP 限流，60 次/小时，台式机常年挂着很容易 403（本机实测就是 403）。
 
 - **模型选择框**：四开关 —— 下拉框里的「DeepSeek 账号」分组 / 「DeepSeek官方 API」分组，以及子智能体「Agent 可选择的模型」列表里的「DeepSeek Account」/「DeepSeek 官方 API」两组。
 - **设置 · 模型**：两开关，隐藏设置页里的账号整行 / 官方 API 整行。
-- **侧边栏**：三开关，隐藏左侧那排图标里的「插件」/「定时任务」/「更多」。
+- **侧边栏**：四开关，隐藏左侧那排图标里的「插件」/「定时任务」/「更多」，以及顶部那个「新会话」大按钮。
 - **账号菜单**：两开关，隐藏右下角头像菜单里的「意见反馈」/「退出登录」。
 - **推理等级**：全局默认 + 按供应商覆盖，写入 profile 配置；面板重新获得焦点会自动重读，也能点「重新读取」。
 - 十二个开关都存 `localStorage` 的 `dsh-menu-hidden:v1`，翻一下立刻重扫 DOM。
@@ -244,6 +254,7 @@ node shell/patch-shell-menu.mjs --revert   # 还原
 | 账号菜单项 | `[role="menuitem"]` 且文字是 `意见反馈` / `Feedback` | 官方菜单没有 data 属性，只能按文字 |
 | 子智能体的供应商分组 | 行内 `[class*="_route"]` 的文字「DeepSeek · deepseek-official/deepseek-flash」，取 `·` 后面 `/` 前面那段当 provider id | 官方那组的标题也叫 `DeepSeek`，只有 id 分得清；拿不到 id 时退回 `[class*="_providerName"]` 的文字 |
 | 侧边栏面板图标 | `button[class*="_panelRow"]` + `aria-label`（`插件` / `定时任务` / `更多`） | 收起状态下只剩 `aria-label`，文字匹配会漏，所以认属性 |
+| 侧边栏「新会话」 | `button[class*="_newSession"]` | 展开与收起是同一类名，只是尺寸不同 |
 
 找不到就安静跳过，不抛错、不碰别的地方；三个 sweep 步骤各自 try/catch，一处结构变了不影响另外两处。
 
@@ -256,6 +267,9 @@ index.js              # 宿主半：/dsh-menu-hidden/api/shell-menu，读写 mai
 client.js             # 客户端半：设置页 + DOM 隐藏 + 语言 / MutationObserver
 reasoning.js          # 推理等级：读改 cordis.patch.yml 的 reasoning 行
 shell/patch-shell-menu.mjs  # 离线 CLI，同一对 MARK，同样幂等
+tools/sync-repo.mjs   # 把 plugin/ 同步进发布副本，统一 loader id 与 VERSION
+market/index.json     # 自己发的 format 1 索引（jsDelivr 上那份）
+test/*.mjs            # jsdom 结构 / 模块加载 / 语言 / 外链 / 子智能体
 ```
 
 ## 卸载

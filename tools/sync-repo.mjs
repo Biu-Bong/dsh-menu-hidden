@@ -2,9 +2,10 @@
 // 发布副本里 loader id 必须等于包名 dsh-menu-hidden；本机装的那份是 @local/...。
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const require_json = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'plugin', 'package.json'), 'utf8'))
-const ROOT = 'D:/DeepSeek/projects/DSH-MenuHidden'
+const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const LOCAL_ID = '@local/dsh-menu-hidden'
 const PUBLIC_ID = 'dsh-menu-hidden'
 
