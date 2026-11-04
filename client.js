@@ -92,6 +92,9 @@ window.__ModuleLoader__.load({
 				updateNew: "有新版本",
 				updateFailed: "检查失败",
 				updateRepo: "项目地址",
+				updateDownload: "去下载",
+				githubLabel: "GitHub",
+				issueLabel: "问题反馈",
 				feedbackLabel: "隐藏「意见反馈」",
 				feedbackHint: "右下角头像点开的那份菜单里的「意见反馈」。",
 				signOutLabel: "隐藏「退出登录」",
@@ -160,6 +163,9 @@ window.__ModuleLoader__.load({
 				updateNew: "New version",
 				updateFailed: "Check failed",
 				updateRepo: "Project",
+				updateDownload: "Download",
+				githubLabel: "GitHub",
+				issueLabel: "Feedback",
 				feedbackLabel: "Hide \"Feedback\"",
 				feedbackHint: "The Feedback item in the account menu opened from the avatar at the bottom right.",
 				signOutLabel: "Hide \"Sign out\"",
@@ -555,7 +561,16 @@ window.__ModuleLoader__.load({
 		// ── §6 样式 ───────────────────────────────────────────────────────────
 		const CSS = [
 			".dshmh-page{box-sizing:border-box;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px}",
-			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0 0 4px;font-size:16px;font-weight:500;line-height:24px}",
+			".dshmh-headrow{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 8px}",
+			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:20px;font-weight:600;line-height:28px}",
+			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:12px;line-height:18px;font-variant-numeric:tabular-nums}",
+			".dshmh-pills{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}",
+			".dshmh-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
+			".dshmh-pill:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07))}",
+			".dshmh-pill:disabled{opacity:.6;cursor:default}",
+			".dshmh-icon{width:15px;height:15px;flex:none}",
+			".dshmh-update{display:flex;align-items:center;gap:8px;color:#ff8a8a}",
+			".dshmh-error{color:#ff8a8a}",
 			".dshmh-desc{color:var(--dsw-alias-label-secondary,inherit);margin:0;font-size:14px;line-height:22px}",
 			".dshmh-project{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 4px;font-size:12px}",
 			".dshmh-link{color:var(--dsw-alias-state-business-primary,#4d8dff);text-decoration:none;border-bottom:1px solid transparent}",
@@ -737,6 +752,33 @@ window.__ModuleLoader__.load({
 		 * 插件自己的设置分区。
 		 * @returns {object} React 元素。
 		 */
+		const ISSUE_URL = REPO_URL + "/issues/new";
+		const iconProps = { width: 15, height: 15, viewBox: "0 0 16 16", "aria-hidden": "true", focusable: "false", className: "dshmh-icon" };
+		const strokeProps = { width: 15, height: 15, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true", focusable: "false", className: "dshmh-icon" };
+		const GITHUB_ICON = React.createElement("svg", { ...iconProps, fill: "currentColor" },
+			React.createElement("path", { d: "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" }));
+		const ISSUE_ICON = React.createElement("svg", strokeProps,
+			React.createElement("path", { d: "M15 3h6v6" }),
+			React.createElement("path", { d: "M10 14 21 3" }),
+			React.createElement("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }));
+		const REFRESH_ICON = React.createElement("svg", strokeProps,
+			React.createElement("path", { d: "M21 12a9 9 0 1 1-3-6.7" }),
+			React.createElement("path", { d: "M21 3v6h-6" }));
+
+		/**
+		 * 打开外部链接：Electron 里 window.open 会被 setWindowOpenHandler 拦掉，
+		 * 退回 location.href 让 will-navigate 接住，交给 shell.openExternal。
+		 * @param {MouseEvent} event - 点击事件。
+		 * @param {string} url - 目标地址。
+		 */
+		function openExternal(event, url) {
+			const opened = window.open(url, "_blank", "noopener");
+			if (opened === null) {
+				event.preventDefault();
+				window.location.href = url;
+			}
+		}
+
 		function SettingsSection() {
 			const [, setTick] = React.useState(0);
 			const [shell, setShell] = React.useState(null);
@@ -1004,34 +1046,44 @@ window.__ModuleLoader__.load({
 			}
 
 			return React.createElement("div", { className: "dshmh-page" },
-				React.createElement("h2", { className: "dshmh-title" }, t("title")),
+				React.createElement("div", { className: "dshmh-headrow" },
+					React.createElement("h2", { className: "dshmh-title" }, t("title")),
+					update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-ver" }, "v" + update.current) : null,
+					React.createElement("div", { className: "dshmh-pills" },
+						React.createElement("a", {
+							className: "dshmh-pill",
+							href: REPO_URL,
+							target: "_blank",
+							rel: "noreferrer",
+							title: REPO_URL,
+							onClick: (event) => openExternal(event, REPO_URL),
+						}, GITHUB_ICON, t("githubLabel")),
+						React.createElement("a", {
+							className: "dshmh-pill",
+							href: ISSUE_URL,
+							target: "_blank",
+							rel: "noreferrer",
+							title: ISSUE_URL,
+							onClick: (event) => openExternal(event, ISSUE_URL),
+						}, ISSUE_ICON, t("issueLabel")),
+						React.createElement("button", {
+							type: "button",
+							className: "dshmh-pill",
+							disabled: update !== null && update.status === "loading",
+							onClick: checkUpdate,
+						}, REFRESH_ICON,
+						update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck"),
+						update !== null && update.hasUpdate === true ? React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }) : null),
+					),
+				),
 				React.createElement("p", { className: "dshmh-desc" }, t("desc")),
 				React.createElement("p", { className: "dshmh-note" }, t("autoRefreshNote")),
-				React.createElement("div", { className: "dshmh-project" },
-					React.createElement("a", {
-						className: "dshmh-link",
-						href: REPO_URL,
-						target: "_blank",
-						rel: "noreferrer",
-						onClick: (event) => {
-							// Electron 里 window.open 会被拦，退回普通跳转由 will-navigate 交给系统浏览器。
-							const opened = window.open(REPO_URL, "_blank", "noopener");
-							if (opened === null) { event.preventDefault(); window.location.href = REPO_URL; }
-						},
-					}, t("updateRepo") + " · github.com/Biu-Bong/dsh-menu-hidden"),
-					update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-version" }, "v" + update.current) : null,
-					update !== null && update.hasUpdate === true ? React.createElement("span", { className: "dshmh-new" },
-						React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }),
-						t("updateNew") + " v" + String(update.latest)) : null,
-					React.createElement("button", {
-						type: "button",
-						className: "dshmh-btn",
-						disabled: update !== null && update.status === "loading",
-						onClick: checkUpdate,
-					}, update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck")),
-					update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("span", { className: "dshmh-caption dshmh-inline" }, t("updateLatest")) : null,
-					update !== null && update.status === "error" ? React.createElement("span", { className: "dshmh-caption dshmh-inline" }, t("updateFailed") + "：" + String(update.error ?? "")) : null,
-				),
+				update !== null && update.hasUpdate === true ? React.createElement("p", { className: "dshmh-note dshmh-update" },
+					React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }),
+					React.createElement("span", null, t("updateNew") + " v" + String(update.latest)),
+					React.createElement("a", { className: "dshmh-link", href: update.url ?? REPO_URL, target: "_blank", rel: "noreferrer", onClick: (event) => openExternal(event, update.url ?? REPO_URL) }, t("updateDownload"))) : null,
+				update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("p", { className: "dshmh-note" }, t("updateLatest")) : null,
+				update !== null && update.status === "error" ? React.createElement("p", { className: "dshmh-note dshmh-error" }, t("updateFailed") + "：" + String(update.error ?? "")) : null,
 
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupPicker")),
 				...rows,
