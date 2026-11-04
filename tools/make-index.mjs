@@ -49,8 +49,8 @@ const index = {
       name: pkg.name,
       title: { zh: '菜单隐藏', en: 'Menu Hiding' },
       description: {
-        zh: '收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口、设置里那两行、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启，并统一写供应商的推理等级。',
-        en: 'Hide the duplicate DeepSeek account / official API entries, the two Settings rows and the Feedback / Sign out items, add Reload / Restart to the application menu, and set reasoning levels for providers.',
+        zh: '收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口，隐藏侧边栏项目、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启；推理等级一键写死，新供应商新模型自动补齐。',
+        en: 'Hide the duplicate DeepSeek account / official API entries, sidebar items and the Feedback / Sign out items; add Reload / Restart to the application menu; pin a reasoning level and auto-fill new providers and models.',
       },
       icon: 'icon.svg',
       author: 'Biu-Bong',

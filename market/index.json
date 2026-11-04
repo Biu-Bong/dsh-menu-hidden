@@ -49,8 +49,8 @@
         "en": "Menu Hiding"
       },
       "description": {
-        "zh": "收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口、设置里那两行、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启，并统一写供应商的推理等级。",
-        "en": "Hide the duplicate DeepSeek account / official API entries, the two Settings rows and the Feedback / Sign out items, add Reload / Restart to the application menu, and set reasoning levels for providers."
+        "zh": "收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口，隐藏侧边栏项目、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启；推理等级一键写死，新供应商新模型自动补齐。",
+        "en": "Hide the duplicate DeepSeek account / official API entries, sidebar items and the Feedback / Sign out items; add Reload / Restart to the application menu; pin a reasoning level and auto-fill new providers and models."
       },
       "icon": "icon.svg",
       "author": "Biu-Bong",
@@ -81,11 +81,11 @@
       "versions": [
         {
           "version": "0.2.26",
-          "publishTimestamp": 1793806411,
+          "publishTimestamp": 1793806495,
           "source": {
             "type": "git",
             "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
-            "commit": "42296a355a2f3c782aa9f8a003bb8c4db0ef66bf"
+            "commit": "f7c35b2008a6c1b32db00be364d7407e35367067"
           },
           "engines": {
             "dsh": ">=0.2.0-rc.1"
