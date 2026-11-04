@@ -80,12 +80,12 @@
       },
       "versions": [
         {
-          "version": "0.2.14",
-          "publishTimestamp": 1793763101,
+          "version": "0.2.15",
+          "publishTimestamp": 1793765724,
           "source": {
             "type": "git",
             "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
-            "commit": "5585bc38c701cae2b0fbc30b2451b1a8ea5fab8c"
+            "commit": "4331098f16fe669bbef4b80f929b5860c25dea74"
           },
           "engines": {
             "dsh": ">=0.2.0-rc.1"
