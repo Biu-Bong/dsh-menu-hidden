@@ -18,7 +18,7 @@
 
 window.__ModuleLoader__.load({
 	// factory id 必须等于 package.json 的包名，否则 boot 图里找不到 factory。
-	id: "dsh-menu-hidden",
+	id: "@local/dsh-menu-hidden",
 	factory: (require) => {
 		const React = require("react");
 
@@ -582,7 +582,7 @@ window.__ModuleLoader__.load({
 			".dshmh-new{display:inline-flex;align-items:center;gap:6px;color:#ff6b6b;font-weight:500}",
 			".dshmh-dot{width:7px;height:7px;border-radius:50%;background:#ff4d4f;box-shadow:0 0 0 2px rgba(255,77,79,.18);display:inline-block}",
 			".dshmh-inline{margin:0}",
-			".dshmh-subtitle{color:var(--dsw-alias-label-primary,inherit);margin:24px 0 0;font-size:14px;font-weight:500;line-height:22px}",
+			".dshmh-subtitle{color:var(--dsw-alias-label-primary,inherit);margin:24px 0 0;font-size:14px;font-weight:700;line-height:22px}",
 			".dshmh-row{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,.2))}",
 			".dshmh-text{display:flex;flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:32px}",
 			".dshmh-label{color:var(--dsw-alias-label-primary,inherit);font-size:14px;font-weight:400;line-height:22px}",
