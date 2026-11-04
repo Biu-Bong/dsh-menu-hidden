@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+const require_json = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'plugin', 'package.json'), 'utf8'))
 const ROOT = 'D:/DeepSeek/projects/DSH-MenuHidden'
 const LOCAL_ID = '@local/dsh-menu-hidden'
 const PUBLIC_ID = 'dsh-menu-hidden'
@@ -14,6 +15,7 @@ for (const file of ['client.js', 'index.js', 'reasoning.js']) {
   let text = fs.readFileSync(path.join(ROOT, 'plugin', file), 'utf8')
   if (file === 'client.js') {
     text = text.replaceAll(`id: "${LOCAL_ID}"`, `id: "${PUBLIC_ID}"`)
+    text = text.replace(/const VERSION = "[^"]*"/, `const VERSION = "${require_json().version}"`)
   }
   atomic(path.join(ROOT, 'repo', file), text)
   notes.push(`${file} synced`)

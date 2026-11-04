@@ -45,6 +45,8 @@ window.__ModuleLoader__.load({
 		let updateCheckedAt = 0;
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
+		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
+		const VERSION = "0.2.14";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -595,13 +597,14 @@ window.__ModuleLoader__.load({
 		// ── §6 样式 ───────────────────────────────────────────────────────────
 		const CSS = [
 			".dshmh-page{box-sizing:border-box;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px}",
-			".dshmh-headrow{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:0 0 8px}",
-			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:21px;font-weight:600;line-height:32px;display:flex;align-items:baseline;gap:10px;min-width:0}",
-			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:15px;line-height:1;font-weight:400;font-variant-numeric:tabular-nums;flex:none;transform:translateY(1px)}",
-			".dshmh-pills{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;align-self:flex-end;height:32px}",
-			".dshmh-pill{display:inline-flex;align-items:center;gap:6px;height:32px;box-sizing:border-box;padding:0 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
+			".dshmh-headrow{display:flex;align-items:flex-end;flex-wrap:nowrap;gap:14px;margin:0 0 8px}",
+			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:21px;font-weight:600;line-height:32px;display:flex;align-items:baseline;gap:10px;min-width:0;flex:0 1 auto;overflow:hidden;white-space:nowrap}",
+			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:15px;line-height:1;font-weight:400;font-variant-numeric:tabular-nums;flex:none;transform:translateY(1px);white-space:nowrap}",
+			".dshmh-pills{display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto;flex-wrap:nowrap;align-self:flex-end;height:32px}",
+			".dshmh-pill{display:inline-flex;align-items:center;gap:5px;height:32px;box-sizing:border-box;padding:0 10px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
 			".dshmh-pill:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07))}",
 			".dshmh-pill:disabled{opacity:.6;cursor:default}",
+			"@media (max-width:560px){.dshmh-headrow{gap:8px}.dshmh-verstate{display:none}.dshmh-pill{padding:0 8px;font-size:12px}}",
 			".dshmh-icon{width:15px;height:15px;flex:none}",
 			".dshmh-update{display:flex;align-items:center;gap:8px;color:#ff8a8a}",
 			".dshmh-error{color:#ff8a8a}",
@@ -614,6 +617,7 @@ window.__ModuleLoader__.load({
 			".dshmh-dot{width:7px;height:7px;border-radius:50%;background:#ff4d4f;box-shadow:0 0 0 2px rgba(255,77,79,.18);display:inline-block}",
 			".dshmh-find{color:#e0a33e;font-weight:600}",
 			".dshmh-ok{color:#3fb950}",
+			".dshmh-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
 			".dshmh-verstate{color:var(--dsw-alias-label-tertiary,#7b828d);font-size:15px;line-height:1;transform:translateY(1px)}",
 			".dshmh-updatebtn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;cursor:pointer}",
 			".dshmh-mask{position:fixed;inset:0;z-index:2147483200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px}",
@@ -1190,8 +1194,8 @@ window.__ModuleLoader__.load({
 				renderUpdateDialog(),
 				React.createElement("div", { className: "dshmh-headrow" },
 					React.createElement("h2", { className: "dshmh-title" },
-					t("title"),
-						update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-ver" }, "v" + update.current) : null,
+					React.createElement("span", { className: "dshmh-name" }, t("title")),
+						React.createElement("span", { className: "dshmh-ver" }, "v" + (update !== null && typeof update.current === "string" && update.current !== "" ? update.current : VERSION)),
 						update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("span", { className: "dshmh-ver dshmh-verstate" }, t("updateLatest")) : null,
 					),
 					React.createElement("div", { className: "dshmh-pills" },
