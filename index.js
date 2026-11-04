@@ -17,6 +17,7 @@
  *   POST ?action=disable   → 还原补丁
  *   POST ?action=status    → 同 GET
  */
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { LEVELS, applyReasoning, readStatus } from './reasoning.js'
 import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises'
@@ -32,6 +33,32 @@ const REPO_SLUG = 'Biu-Bong/dsh-menu-hidden'
 const REPO_URL = `https://github.com/${REPO_SLUG}`
 const UPDATE_TTL_MS = 30 * 60 * 1000
 const BACKUP_SUFFIX = '.menuhidden.bak'
+/** 当前 profile 名：优先问 profileContext，其次环境变量，最后按桌面默认。 */
+function currentProfile(ctx) {
+  try {
+    const context = ctx.get('profileContext')
+    const name = context === null || context === undefined ? null : context.name
+    if (typeof name === 'string' && name !== '') return name
+  } catch {
+    // 没有 profileContext 的宿主（纯 web）就往下走。
+  }
+  const fromEnv = process.env.DSH_PROFILE
+  if (typeof fromEnv === 'string' && fromEnv !== '') return fromEnv
+  return 'desktop'
+}
+
+/** 桌面版自带的 dsh CLI：<app>/resources/cli/bin/dsh.cmd（相对 main.js 的 resources 目录）。 */
+function resolveCli() {
+  const candidates = []
+  const push = (value) => { if (typeof value === 'string' && value !== '' && !candidates.includes(value)) candidates.push(value) }
+  const executable = process.argv[0]
+  if (typeof executable === 'string' && executable !== '') push(join(dirname(executable), 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd'))
+  for (const root of [process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'), process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness')]) {
+    if (root) push(join(root, 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd'))
+  }
+  return candidates.find((candidate) => existsSync(candidate)) ?? null
+}
+
 /** 官方原样：development 为 false 时整段被丢掉。 */
 const MARK_ORIGINAL = '...development ? ['
 /** 打完补丁后的样子：条件恒真，两个菜单项无条件保留。 */
@@ -443,12 +470,44 @@ export function apply(ctx, config = {}) {
       send(403, { ok: false, error: '请求来源不受信任。' })
       return
     }
+    const current = readVersion()
+    if (request.method === 'POST') {
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+      if (url.searchParams.get('action') !== 'install') {
+        send(400, { ok: false, error: '未知操作' })
+        return
+      }
+      const body = await readJsonBody(request)
+      const latest = typeof body.latest === 'string' ? body.latest : ''
+      if (!/^[0-9A-Za-z.+-]{1,32}$/.test(latest)) {
+        send(400, { ok: false, error: '版本号不合法' })
+        return
+      }
+      const cli = resolveCli()
+      if (cli === null) {
+        send(200, { ok: false, error: '没找到桌面版自带的 dsh，按下面的命令手工更新。' })
+        return
+      }
+      const spec = `github:${REPO_SLUG}@v${latest}`
+      const result = await new Promise((done) => {
+        const child = spawn('cmd.exe', ['/c', cli, 'plugin', '--profile', currentProfile(ctx), 'add', spec], { windowsHide: true })
+        let output = ''
+        const collect = (chunk) => { if (output.length < 8000) output += String(chunk) }
+        child.stdout.on('data', collect)
+        child.stderr.on('data', collect)
+        const timer = setTimeout(() => { try { child.kill() } catch { /* 已经退出 */ } }, 180000)
+        child.on('error', (error) => { clearTimeout(timer); done({ ok: false, output: String(error.message), error: String(error.message) }) })
+        child.on('close', (code) => { clearTimeout(timer); done({ ok: code === 0, output: output.trim(), error: code === 0 ? null : `退出码 ${String(code)}` }) })
+      })
+      info(`install ${spec}: ok=${String(result.ok)}`)
+      send(200, { ok: result.ok, output: result.output, error: result.error, profile: currentProfile(ctx) })
+      return
+    }
     if (request.method !== 'GET') {
-      response.writeHead(405, { allow: 'GET' })
+      response.writeHead(405, { allow: 'GET, POST' })
       response.end()
       return
     }
-    const current = readVersion()
     try {
       const release = await latestRelease()
       send(200, {
@@ -458,6 +517,7 @@ export function apply(ctx, config = {}) {
         hasUpdate: compareVersions(release.latest, current) > 0,
         url: release.url,
         repo: REPO_URL,
+        profile: currentProfile(ctx),
         checkedAt: Date.now(),
       })
     } catch (error) {

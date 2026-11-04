@@ -18,7 +18,7 @@
 
 window.__ModuleLoader__.load({
 	// factory id 必须等于 package.json 的包名，否则 boot 图里找不到 factory。
-	id: "@local/dsh-menu-hidden",
+	id: "dsh-menu-hidden",
 	factory: (require) => {
 		const React = require("react");
 
@@ -44,6 +44,7 @@ window.__ModuleLoader__.load({
 		const UPDATE_DEDUPE_MS = 60 * 1000;
 		let updateCheckedAt = 0;
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
+		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -96,6 +97,21 @@ window.__ModuleLoader__.load({
 				updateFailed: "检查失败",
 				updateRepo: "项目地址",
 				updateDownload: "去下载",
+				dialogUpdateSuffix: "更新",
+				dialogClose: "关闭",
+				dialogScope: "仅检查并更新当前插件，不会联动安装其他插件。",
+				dialogRunning: "运行版本",
+				dialogLatest: "最新版本",
+				dialogProfile: "目标 profile",
+				dialogFound: "发现新版本",
+				dialogManual: "手工更新",
+				dialogManualNote: "自动更新失败时，先把 DSH 完全退出，再用桌面版自带的 dsh 执行下面这条命令。",
+				dialogCopy: "复制命令",
+				dialogCopied: "已复制",
+				dialogRecheck: "重新检查",
+				dialogAuto: "自动更新",
+				dialogInstalling: "正在更新…",
+				dialogInstallDone: "已更新，重启一次 DSH 生效。",
 				githubLabel: "GitHub",
 				issueLabel: "问题反馈",
 				feedbackLabel: "隐藏「意见反馈」",
@@ -167,6 +183,21 @@ window.__ModuleLoader__.load({
 				updateFailed: "Check failed",
 				updateRepo: "Project",
 				updateDownload: "Download",
+				dialogUpdateSuffix: "update",
+				dialogClose: "Close",
+				dialogScope: "Checks and updates this plugin only. No other plugin is touched.",
+				dialogRunning: "Running",
+				dialogLatest: "Latest",
+				dialogProfile: "Profile",
+				dialogFound: "New version",
+				dialogManual: "Update by hand",
+				dialogManualNote: "Quit DSH completely first, then run this with the dsh that ships with the desktop app.",
+				dialogCopy: "Copy",
+				dialogCopied: "Copied",
+				dialogRecheck: "Check again",
+				dialogAuto: "Update now",
+				dialogInstalling: "Updating…",
+				dialogInstallDone: "Updated. Restart DSH once.",
 				githubLabel: "GitHub",
 				issueLabel: "Feedback",
 				feedbackLabel: "Hide \"Feedback\"",
@@ -581,6 +612,27 @@ window.__ModuleLoader__.load({
 			".dshmh-version{color:var(--dsw-alias-label-secondary,inherit);font-variant-numeric:tabular-nums}",
 			".dshmh-new{display:inline-flex;align-items:center;gap:6px;color:#ff6b6b;font-weight:500}",
 			".dshmh-dot{width:7px;height:7px;border-radius:50%;background:#ff4d4f;box-shadow:0 0 0 2px rgba(255,77,79,.18);display:inline-block}",
+			".dshmh-find{color:#e0a33e;font-weight:600}",
+			".dshmh-ok{color:#3fb950}",
+			".dshmh-verstate{color:var(--dsw-alias-label-tertiary,#7b828d);font-size:15px;line-height:1;transform:translateY(1px)}",
+			".dshmh-updatebtn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;cursor:pointer}",
+			".dshmh-mask{position:fixed;inset:0;z-index:2147483200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px}",
+			".dshmh-dialog{box-sizing:border-box;width:min(560px,100%);max-height:calc(100vh - 48px);overflow:auto;padding:22px 24px 18px;border-radius:16px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:var(--dsw-alias-bg-layer-1,#1b1d22);box-shadow:0 24px 64px rgba(0,0,0,.5)}",
+			".dshmh-dialoghead{display:flex;align-items:center;gap:12px}",
+			".dshmh-dialogtitle{color:var(--dsw-alias-label-primary,inherit);font-size:17px;font-weight:700;line-height:26px}",
+			".dshmh-x{margin-left:auto;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary,#9aa0aa);font-size:20px;line-height:1;cursor:pointer;font-family:inherit}",
+			".dshmh-x:hover{background:rgba(127,127,127,.16)}",
+			".dshmh-dialogdesc{color:var(--dsw-alias-label-secondary,#9aa0aa);font-size:13px;line-height:20px;margin:12px 0 14px}",
+			".dshmh-kv{display:grid;grid-template-columns:120px 1fr;gap:10px 16px;font-size:13px;line-height:20px;margin:0 0 16px}",
+			".dshmh-kvlabel{color:var(--dsw-alias-label-secondary,#9aa0aa)}",
+			".dshmh-kvval{color:var(--dsw-alias-label-primary,inherit);word-break:break-all}",
+			".dshmh-manual{border-top:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.1));padding-top:14px;margin-top:2px}",
+			".dshmh-manualtitle{font-size:14px;font-weight:700;line-height:22px;margin:0 0 6px}",
+			".dshmh-cmdbox{position:relative;margin:10px 0 0;padding:12px 84px 12px 12px;border-radius:12px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.12));background:var(--dsw-alias-bg-layer-2,rgba(255,255,255,.04));font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;word-break:break-all;color:var(--dsw-alias-label-primary,inherit)}",
+			".dshmh-copy{position:absolute;right:10px;top:10px;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.16));background:transparent;color:inherit;font-size:12px;cursor:pointer;font-family:inherit}",
+			".dshmh-dialogfoot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}",
+			".dshmh-primary{height:34px;padding:0 16px;border-radius:10px;border:0;background:var(--dsw-alias-brand-primary,#2f6fff);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}",
+			".dshmh-primary:disabled{opacity:.6;cursor:default}",
 			".dshmh-inline{margin:0}",
 			".dshmh-subtitle{color:var(--dsw-alias-label-primary,inherit);margin:24px 0 0;font-size:14px;font-weight:700;line-height:22px}",
 			".dshmh-row{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2,rgba(127,127,127,.2))}",
@@ -806,13 +858,21 @@ window.__ModuleLoader__.load({
 				return () => { alive = false; };
 			}, []);
 
+			const [updateDialog, setUpdateDialog] = React.useState(false);
+			const [installBusy, setInstallBusy] = React.useState(false);
+			const [installNote, setInstallNote] = React.useState(null);
+			const [copied, setCopied] = React.useState(false);
+
 			const checkUpdate = (force) => {
 				const now = Date.now();
 				if (force !== true && now - updateCheckedAt < UPDATE_DEDUPE_MS) return;
 				updateCheckedAt = now;
 				setUpdate((prev) => ({ ...(prev ?? {}), status: "loading" }));
 				fetch(UPDATE_ROUTE, { credentials: "same-origin" }).then((response) => response.json()).then(
-					(state) => setUpdate({ status: "done", ...state }),
+					(state) => {
+						setUpdate({ status: "done", ...state });
+						if (force === true && state !== null && state.hasUpdate === true) setUpdateDialog(true);
+					},
 					(error) => setUpdate({ status: "error", error: String((error && error.message) || error) }),
 				);
 			};
@@ -1039,6 +1099,78 @@ window.__ModuleLoader__.load({
 				? React.createElement(OfficialButton, { disabled: reasoningBusy, onClick: () => loadReasoning(true) }, t("reasoningReload"))
 				: React.createElement("button", { type: "button", className: "dshmh-btn", disabled: reasoningBusy, onClick: () => loadReasoning(true) }, t("reasoningReload"));
 
+			const runInstall = () => {
+				setInstallBusy(true);
+				setInstallNote(null);
+				const latest = update !== null && typeof update.latest === "string" ? update.latest : "";
+				fetch(UPDATE_ROUTE + "?action=install", {
+					method: "POST",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ latest }),
+				}).then((response) => response.json()).then(
+					(state) => {
+						setInstallNote({ ok: state.ok === true, text: state.ok === true ? t("dialogInstallDone") : t("updateFailed") + " " + String(state.error ?? state.output ?? "") });
+						if (state.ok === true) checkUpdate(true);
+					},
+					(error) => setInstallNote({ ok: false, text: t("updateFailed") + " " + String((error && error.message) || error) }),
+				).then(() => setInstallBusy(false));
+			};
+
+			const copyCommand = (command) => {
+				const done = () => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); };
+				const fallback = () => {
+					try {
+						const area = document.createElement("textarea");
+						area.value = command;
+						area.style.position = "fixed";
+						area.style.opacity = "0";
+						document.body.appendChild(area);
+						area.select();
+						document.execCommand("copy");
+						area.remove();
+					} catch { /* 复制不可用时用户手动选中 */ }
+					done();
+				};
+				if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+					navigator.clipboard.writeText(command).then(done, fallback);
+					return;
+				}
+				fallback();
+			};
+
+			const renderUpdateDialog = () => {
+				if (updateDialog !== true) return null;
+				const latest = update !== null && typeof update.latest === "string" && update.latest !== "" ? update.latest : String(update === null ? "" : update.current ?? "");
+				const running = update !== null && typeof update.current === "string" ? update.current : "";
+				const profileName = update !== null && typeof update.profile === "string" ? update.profile : "desktop";
+				const command = "dsh plugin --profile " + profileName + " add github:" + REPO_SLUG + "@v" + latest;
+				const close = () => { setUpdateDialog(false); setInstallNote(null); };
+				const kv = (label, value, hint) => [
+					React.createElement("span", { key: label + "-k", className: "dshmh-kvlabel" }, label),
+					React.createElement("span", { key: label + "-v", className: "dshmh-kvval" }, value, hint === null || hint === undefined ? null : React.createElement("span", { className: "dshmh-find" }, "  " + hint)),
+				];
+				return React.createElement("div", { className: "dshmh-mask", onClick: close },
+					React.createElement("div", { className: "dshmh-dialog", role: "dialog", "aria-modal": "true", onClick: (event) => event.stopPropagation() },
+						React.createElement("div", { className: "dshmh-dialoghead" },
+							React.createElement("span", { className: "dshmh-dialogtitle" }, t("title") + " " + t("dialogUpdateSuffix")),
+							React.createElement("button", { type: "button", className: "dshmh-x", onClick: close, "aria-label": t("dialogClose") }, "×")),
+						React.createElement("p", { className: "dshmh-dialogdesc" }, t("dialogScope")),
+						React.createElement("div", { className: "dshmh-kv" },
+							kv(t("dialogRunning"), "v" + running),
+							kv(t("dialogLatest"), "v" + latest, update !== null && update.hasUpdate === true ? t("dialogFound") + " v" + latest : null),
+							kv(t("dialogProfile"), profileName)),
+						React.createElement("div", { className: "dshmh-manual" },
+							React.createElement("p", { className: "dshmh-manualtitle" }, t("dialogManual")),
+							React.createElement("p", { className: "dshmh-caption" }, t("dialogManualNote")),
+							React.createElement("div", { className: "dshmh-cmdbox" }, command,
+								React.createElement("button", { type: "button", className: "dshmh-copy", onClick: () => copyCommand(command) }, copied === true ? t("dialogCopied") : t("dialogCopy")))),
+						installNote === null ? null : React.createElement("p", { className: installNote.ok === true ? "dshmh-note dshmh-ok" : "dshmh-note dshmh-error" }, installNote.text),
+						React.createElement("div", { className: "dshmh-dialogfoot" },
+							React.createElement("button", { type: "button", className: "dshmh-btn", disabled: installBusy, onClick: () => checkUpdate(true) }, t("dialogRecheck")),
+							React.createElement("button", { type: "button", className: "dshmh-primary", disabled: installBusy || update === null || update.hasUpdate !== true, onClick: runInstall }, installBusy === true ? t("dialogInstalling") : t("dialogAuto")))));
+			};
+
 			const buttons = [
 				boxAction(t("shellApply"), "enable", !shellFound || bulkDisabled(busy)),
 				boxAction(t("shellRollback"), "disable", !shellPatched || bulkDisabled(busy)),
@@ -1055,10 +1187,12 @@ window.__ModuleLoader__.load({
 			}
 
 			return React.createElement("div", { className: "dshmh-page" },
+				renderUpdateDialog(),
 				React.createElement("div", { className: "dshmh-headrow" },
 					React.createElement("h2", { className: "dshmh-title" },
 					t("title"),
 						update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-ver" }, "v" + update.current) : null,
+						update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("span", { className: "dshmh-ver dshmh-verstate" }, t("updateLatest")) : null,
 					),
 					React.createElement("div", { className: "dshmh-pills" },
 						React.createElement("a", {
@@ -1081,7 +1215,10 @@ window.__ModuleLoader__.load({
 							type: "button",
 							className: "dshmh-pill",
 							disabled: update !== null && update.status === "loading",
-							onClick: () => checkUpdate(true),
+							onClick: () => {
+								if (update !== null && update.hasUpdate === true) { setUpdateDialog(true); return; }
+								checkUpdate(true);
+							},
 						}, REFRESH_ICON,
 						update !== null && update.status === "loading" ? t("updateChecking") : t("updateCheck"),
 						update !== null && update.hasUpdate === true ? React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }) : null),
@@ -1089,11 +1226,10 @@ window.__ModuleLoader__.load({
 				),
 				React.createElement("p", { className: "dshmh-desc" }, t("desc")),
 				React.createElement("p", { className: "dshmh-note" }, t("autoRefreshNote")),
-				update !== null && update.hasUpdate === true ? React.createElement("p", { className: "dshmh-note dshmh-update" },
+				update !== null && update.hasUpdate === true ? React.createElement("button", { type: "button", className: "dshmh-note dshmh-update dshmh-updatebtn", onClick: () => setUpdateDialog(true) },
 					React.createElement("span", { className: "dshmh-dot", "aria-hidden": "true" }),
 					React.createElement("span", null, t("updateNew") + " v" + String(update.latest)),
-					React.createElement("a", { className: "dshmh-link", href: update.url ?? REPO_URL, target: "_blank", rel: "noreferrer", onClick: (event) => openExternal(event, update.url ?? REPO_URL) }, t("updateDownload"))) : null,
-				update !== null && update.status === "done" && update.hasUpdate !== true ? React.createElement("p", { className: "dshmh-note" }, t("updateLatest")) : null,
+					React.createElement("span", { className: "dshmh-link" }, t("updateDownload"))) : null,
 				update !== null && update.status === "error" ? React.createElement("p", { className: "dshmh-note dshmh-error" }, t("updateFailed") + "：" + String(update.error ?? "")) : null,
 
 				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupPicker")),

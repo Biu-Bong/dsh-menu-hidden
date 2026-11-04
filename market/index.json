@@ -43,7 +43,7 @@
   },
   "plugins": [
     {
-      "name": "@local/dsh-menu-hidden",
+      "name": "dsh-menu-hidden",
       "title": {
         "zh": "菜单隐藏",
         "en": "Menu Hiding"
@@ -80,12 +80,12 @@
       },
       "versions": [
         {
-          "version": "0.2.4",
-          "publishTimestamp": 1793716924,
+          "version": "0.2.14",
+          "publishTimestamp": 1793763101,
           "source": {
             "type": "git",
             "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
-            "commit": "b69aec8d4a71964bd5f26b51ab1986e510489f73"
+            "commit": "5585bc38c701cae2b0fbc30b2451b1a8ea5fab8c"
           },
           "engines": {
             "dsh": ">=0.2.0-rc.1"
