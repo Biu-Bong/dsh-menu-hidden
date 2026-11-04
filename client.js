@@ -561,10 +561,10 @@ window.__ModuleLoader__.load({
 		// ── §6 样式 ───────────────────────────────────────────────────────────
 		const CSS = [
 			".dshmh-page{box-sizing:border-box;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px}",
-			".dshmh-headrow{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 8px}",
+			".dshmh-headrow{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:0 0 8px}",
 			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:20px;font-weight:600;line-height:28px}",
-			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:12px;line-height:18px;font-variant-numeric:tabular-nums}",
-			".dshmh-pills{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}",
+			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:14px;line-height:20px;font-weight:400;font-variant-numeric:tabular-nums;align-self:baseline}",
+			".dshmh-pills{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;align-self:center}",
 			".dshmh-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
 			".dshmh-pill:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07))}",
 			".dshmh-pill:disabled{opacity:.6;cursor:default}",
