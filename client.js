@@ -565,8 +565,8 @@ window.__ModuleLoader__.load({
 		const CSS = [
 			".dshmh-page{box-sizing:border-box;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px}",
 			".dshmh-headrow{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:0 0 8px}",
-			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:21px;font-weight:600;line-height:32px}",
-			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:15px;line-height:32px;font-weight:400;font-variant-numeric:tabular-nums;align-self:flex-end}",
+			".dshmh-title{color:var(--dsw-alias-label-primary,inherit);margin:0;font-size:21px;font-weight:600;line-height:32px;display:flex;align-items:baseline;gap:10px;min-width:0}",
+			".dshmh-ver{color:var(--dsw-alias-label-secondary,#8b909a);font-size:15px;line-height:1;font-weight:400;font-variant-numeric:tabular-nums;flex:none;transform:translateY(1px)}",
 			".dshmh-pills{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;align-self:flex-end;height:32px}",
 			".dshmh-pill{display:inline-flex;align-items:center;gap:6px;height:32px;box-sizing:border-box;padding:0 12px;border-radius:10px;border:1px solid var(--dsw-alias-border-l2,rgba(255,255,255,.14));background:transparent;color:var(--dsw-alias-label-primary,inherit);font-size:13px;font-weight:400;line-height:20px;text-decoration:none;cursor:pointer;font-family:inherit}",
 			".dshmh-pill:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.07))}",
@@ -775,11 +775,14 @@ window.__ModuleLoader__.load({
 		 * @param {string} url - 目标地址。
 		 */
 		function openExternal(event, url) {
-			// 先拦掉 <a> 自己的默认跳转：不拦的话 window.open 成功时浏览器还会再走一次 href，
-			// 点一下开两个标签页，就是这个原因。
+			// 浏览器里什么都别做：<a target="_blank" rel="noreferrer"> 自己就只开一个新标签页。
+			// 之前在这里 window.open 再补一次 location.href，于是「开一个新标签 + 当前页也跳过去」，
+			// 看起来就是点了两下。带 noopener 的 window.open 永远返回 null，不能拿返回值判断。
+			if (!/Electron/i.test(navigator.userAgent)) return;
+			// Electron：主进程的 setWindowOpenHandler 会 deny 掉新窗口，改走 will-navigate，
+			// 由它调 shell.openExternal 交给系统浏览器，只跳一次。
 			event.preventDefault();
-			const opened = window.open(url, "_blank", "noopener");
-			if (opened === null) window.location.href = url;
+			window.location.href = url;
 		}
 
 		function SettingsSection() {
@@ -1053,8 +1056,10 @@ window.__ModuleLoader__.load({
 
 			return React.createElement("div", { className: "dshmh-page" },
 				React.createElement("div", { className: "dshmh-headrow" },
-					React.createElement("h2", { className: "dshmh-title" }, t("title")),
-					update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-ver" }, "v" + update.current) : null,
+					React.createElement("h2", { className: "dshmh-title" },
+					t("title"),
+						update !== null && typeof update.current === "string" ? React.createElement("span", { className: "dshmh-ver" }, "v" + update.current) : null,
+					),
 					React.createElement("div", { className: "dshmh-pills" },
 						React.createElement("a", {
 							className: "dshmh-pill",
