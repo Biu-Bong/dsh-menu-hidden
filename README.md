@@ -46,6 +46,33 @@
 
 改完 `Menu` 在下次启动时才重建，所以那两项要重启一次应用才出现。插件把这个动作做成了设置页上的两个按钮（写入补丁 / 还原），走一条本机路由，写入端带平台浏览器鉴权 —— 不带会话 cookie 的本机进程会被 401 挡回去。
 
+### 补丁会自己失效（0.2.28）
+
+恒真的 `development || true` 有个后遗症：插件被卸载后它还在。因为 `dsh plugin remove` 走的是 pnpm，而 **pnpm 不执行依赖的 pre/post 生命周期脚本**（npm 那套在这里没有），插件拿不到「我要被删了」的通知，也就没有机会把 `main.js` 改回去 —— 用户看到的是插件没了、开发菜单还挂着。
+
+0.2.28 起写进外壳文件的不是恒真值，而是每次启动现算的自检：
+
+```js
+...(development || (function(){try{
+  const h = process.env.DSH_HOME || join(homedir(), ".dsh");
+  for (const n of readdirSync(join(h, "profiles"))) {
+    if (n.charAt(0) === "_") continue;
+    if (existsSync(join(h, "profiles", n, "node_modules", "dsh-menu-hidden", "package.json"))) return true;
+  }
+  return false;
+}catch{ return false }})()) ? [
+```
+
+| 场景 | 结果 |
+| --- | --- |
+| 插件装在某套 profile 里 | 菜单项出现 |
+| `dsh plugin remove dsh-menu-hidden` | 下次启动菜单项自动消失，不用手动还原 |
+| 重新装回来 | 下次启动又自动出现，不用再点「写入补丁」 |
+| 只有 `_` 开头的探查 profile 里有 | 不算，不生效 |
+| `DSH_HOME` 不存在 / 权限异常 / 外壳改了导入 | 退回 `false`，回到官方行为，不会把外壳带崩 |
+
+自检只用 `main.js` 顶部本来就 import 了的 `existsSync` / `readdirSync` / `join` / `homedir`，不带新依赖，整段包在 try 里。想彻底拿掉补丁还是点「还原」，或跑 `node shell/patch-shell-menu.mjs --revert --file <main.js>` —— 还原是逐字节回到官方原文。0.2.26 / 0.2.27 写进去的恒真版本仍能被识别和还原，点一次「写入」会顺手升级成自检版。
+
 ## 推理等级（0.2.0）
 
 各家中转站的后台只有在请求里带了推理等级时才显示得出来，DSH 只有在 provider 上写了
@@ -137,6 +164,7 @@ DSH 查字典用的是应用当前语言的**原样小写标签**：渲染进程
 
 ## 更新记录
 
+- **0.2.28**：外壳补丁自愈。写进 `lib/main.js` 的条件不再是恒真，而是「插件还在不在」的运行时自检（扫 `$DSH_HOME/profiles/*/node_modules/dsh-menu-hidden/package.json`，跳过 `_` 开头）：`dsh plugin remove` 之后菜单项下次启动自动消失，重装又自动出现，不需要卸载钩子（pnpm 不执行依赖的 pre/post 生命周期脚本，本来也挂不上）。0.2.26 / 0.2.27 写进去的恒真版本仍能被识别、还原、并顺手升级。新增 `test/shell-selfcheck.mjs`（18 项断言，含「假 DSH_HOME 下表达式求值」与「apply/revert 逐字节还原」）；CLI 写入改为 `.menuhidden.tmp` + rename 原子替换，报告按写后重读的真实状态输出。
 - **0.2.27**：启动安全。模块导出上不再写顶层 `inject`，改成 scoped `ctx.inject(...)` + 全程 try/catch —— 服务没到只降级（设置页不出现），entry 始终 active，不会再让整个前端卡在 `web boot: N entries did not activate`；配套新增 `test/client-degraded.mjs`。包补上 `repository` / `homepage` / `bugs`，`files` 补上 `shell/`。
 - **0.2.26**：自动补齐从 5 秒轮询改成「目录事件 + 60 秒兜底 stat」，稳态 CPU 降一个量级；`fs.watch` 盯目录不盯文件，避开 rename 丢事件。
 - **0.2.25**：新增「隐藏推理等级里的 `Default`」开关。

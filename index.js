@@ -61,8 +61,24 @@ function resolveCli() {
 
 /** 官方原样：development 为 false 时整段被丢掉。 */
 const MARK_ORIGINAL = '...development ? ['
-/** 打完补丁后的样子：条件恒真，两个菜单项无条件保留。 */
-const MARK_PATCHED = '...(development || true) ? ['
+/**
+ * 打完补丁后的样子（0.2.28 起）：不是恒真，而是「插件还在不在」的运行时自检。
+ *
+ * 为什么不再写 `development || true`：
+ * 卸载插件走的是 pnpm，pnpm 不执行依赖的 pre/post 生命周期脚本（npm 那套在这里没有），
+ * 插件自己得不到「我要被删了」的通知，也就没地方把 main.js 改回去 ——
+ * 用户会看到插件没了、开发菜单却还在。把判断挪进外壳文件本身、每次启动现算，
+ * 卸载后下一次启动就自动失活，重装又自动生效，不需要任何卸载钩子。
+ *
+ * 自检只用 main.js 顶部已经 import 过的 existsSync / readdirSync / join / homedir，
+ * 不引新依赖；整段包在 try 里，任何意外（DSH_HOME 不存在、权限、未来版本改了导入）
+ * 都退回 false，也就是「回到官方行为」，不会把外壳带崩。
+ */
+const SELF_CHECK = '...(development || (function(){try{const h=process.env.DSH_HOME||join(homedir(),".dsh");const d=join(h,"profiles");for(const n of readdirSync(d)){if(n.charAt(0)==="_")continue;if(existsSync(join(d,n,"node_modules","dsh-menu-hidden","package.json")))return true}return false}catch{return false}})()) ? ['
+/** 0.2.26–0.2.27 写进去的老样子：条件恒真，仍然要能被识别和还原。 */
+const MARK_PATCHED_LEGACY = '...(development || true) ? ['
+/** 当前版本写入的样子。 */
+const MARK_PATCHED = SELF_CHECK
 /** 用来确认「这个文件真的是外壳 main.js」而不是同名别的东西。 */
 const MARK_SHELL = 'applicationItems'
 
@@ -124,12 +140,15 @@ function shellState() {
     text = readFileSync(file, 'utf8')
   } catch (error) {
     // 更新过程里文件会被独占，读不到就当「没打补丁」，别把整条状态路由带成 500。
-    return { found: true, file, patched: false, original: false, tried, error: `读取失败：${describe(error)}` }
+    return { found: true, file, patched: false, mode: null, original: false, tried, error: `读取失败：${describe(error)}` }
   }
+  const selfCheck = text.includes(MARK_PATCHED)
+  const legacy = text.includes(MARK_PATCHED_LEGACY)
   return {
     found: true,
     file,
-    patched: text.includes(MARK_PATCHED),
+    patched: selfCheck || legacy,
+    mode: selfCheck ? 'self-check' : legacy ? 'always' : null,
     original: text.includes(MARK_ORIGINAL),
     tried,
   }
@@ -145,7 +164,8 @@ async function setShellPatch(enabled) {
   if (!state.found || state.file === null) {
     return { ...state, ok: false, error: '没找到外壳 main.js；可用环境变量 DSH_SHELL_MAIN_JS 指定绝对路径。' }
   }
-  if (enabled && state.patched) return { ...state, ok: true, changed: false, reason: 'already-patched' }
+  // 0.2.26/0.2.27 写进去的是恒真条件：功能一样，但没有自愈能力；点一次「写入」顺手升级成自检版。
+  if (enabled && state.patched && state.mode === 'self-check') return { ...state, ok: true, changed: false, reason: 'already-patched' }
   if (!enabled && !state.patched) return { ...state, ok: true, changed: false, reason: 'already-clean' }
   let text
   try {
@@ -155,12 +175,17 @@ async function setShellPatch(enabled) {
   }
   const hits = text.split(MARK_ORIGINAL).length - 1
   const patchedHits = text.split(MARK_PATCHED).length - 1
+  const legacyHits = text.split(MARK_PATCHED_LEGACY).length - 1
   if (enabled) {
-    if (hits !== 1) return { ...state, ok: false, error: `定位失败：main.js 里 "${MARK_ORIGINAL}" 命中 ${hits} 处（期望 1 处）。这个版本的外壳结构变了，补丁没有写入。` }
+    if (patchedHits === 1) return { ...state, ok: true, changed: false, reason: 'already-patched' }
+    const source = legacyHits === 1 ? MARK_PATCHED_LEGACY : MARK_ORIGINAL
+    if (legacyHits !== 1 && hits !== 1) {
+      return { ...state, ok: false, error: `定位失败：main.js 里 "${MARK_ORIGINAL}" 命中 ${hits} 处（期望 1 处）。这个版本的外壳结构变了，补丁没有写入。` }
+    }
     try {
       // 每次打补丁都刷新备份：DSH 更新会换掉整个 main.js，旧备份留着只会误导人。
       await copyFile(state.file, state.file + BACKUP_SUFFIX)
-      await swap(state.file, text.replace(MARK_ORIGINAL, MARK_PATCHED))
+      await swap(state.file, text.replace(source, MARK_PATCHED))
     } catch (error) {
       return { ...state, ok: false, error: `写入失败：${describe(error)}` }
     }
@@ -168,9 +193,12 @@ async function setShellPatch(enabled) {
     if (after.patched !== true) return { ...after, ok: false, error: '写入后回读没看到补丁标记，外壳文件可能被别的进程改回去了。' }
     return { ...after, ok: true, changed: true }
   }
-  if (patchedHits !== 1) return { ...state, ok: false, error: `定位失败：main.js 里 "${MARK_PATCHED}" 命中 ${patchedHits} 处（期望 1 处）。` }
+  const target = patchedHits === 1 ? MARK_PATCHED : legacyHits === 1 ? MARK_PATCHED_LEGACY : null
+  if (target === null) {
+    return { ...state, ok: false, error: `定位失败：main.js 里两版补丁标记都没命中（新 ${patchedHits} 处 / 旧 ${legacyHits} 处），期望其中一版命中 1 处。` }
+  }
   try {
-    await swap(state.file, text.replace(MARK_PATCHED, MARK_ORIGINAL))
+    await swap(state.file, text.replace(target, MARK_ORIGINAL))
   } catch (error) {
     return { ...state, ok: false, error: `还原失败：${describe(error)}` }
   }

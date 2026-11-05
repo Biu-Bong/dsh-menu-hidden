@@ -14,11 +14,14 @@
  *   node patch-shell-menu.mjs --apply --dry-run        # 只算不写
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { copyFile, writeFile } from 'node:fs/promises'
+import { copyFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 const MARK_ORIGINAL = '...development ? ['
-const MARK_PATCHED = '...(development || true) ? ['
+/** 0.2.28 起写入的样子：条件里嵌了「插件还在不在」的运行时自检，卸载后自动失活。 */
+const MARK_PATCHED = '...(development || (function(){try{const h=process.env.DSH_HOME||join(homedir(),".dsh");const d=join(h,"profiles");for(const n of readdirSync(d)){if(n.charAt(0)==="_")continue;if(existsSync(join(d,n,"node_modules","dsh-menu-hidden","package.json")))return true}return false}catch{return false}})()) ? ['
+/** 0.2.26–0.2.27 写进去的老样子：条件恒真。 */
+const MARK_PATCHED_LEGACY = '...(development || true) ? ['
 const BACKUP_SUFFIX = '.menuhidden.bak'
 const SHELL_MARK = 'applicationItems'
 
@@ -73,35 +76,57 @@ if (!existsSync(file)) {
 const text = readFileSync(file, 'utf8')
 const originalHits = text.split(MARK_ORIGINAL).length - 1
 const patchedHits = text.split(MARK_PATCHED).length - 1
-const patched = patchedHits > 0
+const legacyHits = text.split(MARK_PATCHED_LEGACY).length - 1
+const patched = patchedHits > 0 || legacyHits > 0
 
 const report = {
   file,
   patched,
+  mode: patchedHits > 0 ? 'self-check' : legacyHits > 0 ? 'always' : null,
   originalHits,
   patchedHits,
+  legacyHits,
   backup: file + BACKUP_SUFFIX,
   backupExists: existsSync(file + BACKUP_SUFFIX),
 }
 
 if (has('--apply') || has('--revert')) {
   const enable = has('--apply')
-  if (enable && originalHits !== 1) {
+  if (enable && originalHits !== 1 && legacyHits !== 1) {
     console.error(JSON.stringify({ ...report, ok: false, error: `定位失败：原样标记命中 ${originalHits} 处（期望 1 处）` }, null, 2))
     process.exit(3)
   }
-  if (!enable && patchedHits !== 1) {
-    console.error(JSON.stringify({ ...report, ok: false, error: `定位失败：补丁标记命中 ${patchedHits} 处（期望 1 处）` }, null, 2))
+  if (!enable && patchedHits !== 1 && legacyHits !== 1) {
+    console.error(JSON.stringify({ ...report, ok: false, error: `定位失败：补丁标记命中 ${patchedHits} + ${legacyHits} 处（期望其中一版 1 处）` }, null, 2))
     process.exit(3)
   }
-  const next = enable ? text.replace(MARK_ORIGINAL, MARK_PATCHED) : text.replace(MARK_PATCHED, MARK_ORIGINAL)
+  const source = enable ? (legacyHits === 1 ? MARK_PATCHED_LEGACY : MARK_ORIGINAL) : (patchedHits === 1 ? MARK_PATCHED : MARK_PATCHED_LEGACY)
+  const target = enable ? MARK_PATCHED : MARK_ORIGINAL
+  const next = text.replace(source, target)
   if (dryRun) {
     console.log(JSON.stringify({ ...report, ok: true, dryRun: true, bytes: next.length }, null, 2))
     process.exit(0)
   }
-  if (!enable || !existsSync(file + BACKUP_SUFFIX)) await copyFile(file, file + BACKUP_SUFFIX)
-  await writeFile(file, next, 'utf8')
-  console.log(JSON.stringify({ ...report, ok: true, wrote: enable ? 'patched' : 'reverted' }, null, 2))
+  if (enable && !existsSync(file + BACKUP_SUFFIX)) await copyFile(file, file + BACKUP_SUFFIX)
+  // 原子换：先写同目录临时文件再改名，避免写一半把外壳入口截断（截断 = 下次启动白屏）。
+  const staged = file + '.menuhidden.tmp'
+  try {
+    await writeFile(staged, next, 'utf8')
+    await rename(staged, file)
+  } catch (error) {
+    await unlink(staged).catch(() => {})
+    throw error
+  }
+  const after = readFileSync(file, 'utf8')
+  const afterSelf = after.split(MARK_PATCHED).length - 1
+  const afterLegacy = after.split(MARK_PATCHED_LEGACY).length - 1
+  console.log(JSON.stringify({
+    ...report,
+    patched: afterSelf > 0 || afterLegacy > 0,
+    mode: afterSelf > 0 ? 'self-check' : afterLegacy > 0 ? 'always' : null,
+    ok: true,
+    wrote: enable ? 'patched' : 'reverted',
+  }, null, 2))
   process.exit(0)
 }
 
