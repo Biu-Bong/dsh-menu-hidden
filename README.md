@@ -6,7 +6,35 @@
 2. 新模型自动补足推理等级、上下文窗口和图片支持。
 3. 侧边栏、账号菜单、模型配置等多项隐藏。
 
-## 截图
+## 效果
+
+按真实界面的文案、分组顺序和配色复刻的对比图；最后那三张设置页是拿插件组件在 jsdom 里真渲染之后截的。图里的第三方厂商与模型都是编出来的示例名字（GPT 6 Astra / GPT 6.1 Sol / Claude Opus 5.5 / Grok 4.6 / 4.7），不代表任何真实账号。
+
+**模型下拉框** 左：装之前（「DeepSeek 账号」和「DeepSeek」两组重复） 右：装之后（只剩 OpenAI / Anthropic / xAI）
+
+<p><img src="docs/model-menu-before.png" width="290"> <img src="docs/model-menu-after.png" width="290"></p>
+
+**设置 · 模型** 左：装之前（两行 DeepSeek，其中一行带「已登录」） 右：装之后
+
+<p><img src="docs/settings-models-before.png" width="430"> <img src="docs/settings-models-after.png" width="430"></p>
+
+**应用菜单** 左：装之前 右：点过「写入补丁」并重启之后（0.2.28 起补丁带自检，卸载插件后这两项会自己消失）
+
+<p><img src="docs/app-menu-before.png" width="200"> <img src="docs/app-menu-after.png" width="200"></p>
+
+**账号菜单** 左：装之前（设置 / 意见反馈 / 退出登录） 右：装之后
+
+<p><img src="docs/account-menu-before.png" width="185"> <img src="docs/account-menu-after.png" width="185"></p>
+
+**检查更新** 左：已是最新（第三颗胶囊变「✓ 已是最新」） 右：有新版本（胶囊带红点 + 标题下多一行）
+
+<p><img src="docs/header-latest.png" width="420"> <img src="docs/header-has-update.png" width="420"></p>
+
+**更新窗口**（点「去下载」或带红点的胶囊打开）
+
+<p><img src="docs/update-dialog.png" width="480"></p>
+
+**设置 → 懒人菜单**（插件自己的页面，0.2.26 起分三个标签：菜单隐藏 / 模型配置 / 菜单增强）
 
 | 菜单隐藏 | 模型配置 | 菜单增强 |
 |---|---|---|
