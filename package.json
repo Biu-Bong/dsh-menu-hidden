@@ -1,7 +1,7 @@
 {
   "name": "dsh-menu-hidden",
-  "version": "0.2.26",
-  "description": "添加重启和刷新菜单；侧边栏项目、官方模型分组、重复选项卡一键隐藏；推理等级一键写死，新供应商新模型自动补齐。",
+  "version": "0.2.27",
+  "description": "懒人菜单：1. 应用菜单增加刷新与重启功能。 2. 新模型自动补足推理等级、上下文窗口和图片支持。 3. 侧边栏、账号菜单、模型配置等多项隐藏。",
   "keywords": [
     "dsh",
     "deepseek-harness",
@@ -32,7 +32,8 @@
     "cordis.patch.yml",
     "README.md",
     "icon.svg",
-    "locale/*.json"
+    "locale/*.json",
+    "shell/"
   ],
   "engines": {
     "node": ">=20",
@@ -50,6 +51,14 @@
     }
   },
   "license": "MIT",
-  "descriptionEn": "Add Reload and Restart to the app menu; hide sidebar items, official model groups and duplicate tabs; pin a default reasoning level, auto-filling new providers and models.",
-  "icon": "./icon.svg"
+  "descriptionEn": "Lazy Menu: 1. Reload and Restart in the app menu. 2. Reasoning levels, context window and image input auto-filled for new models. 3. Sidebar, account-menu and model-picker items can be hidden.",
+  "icon": "./icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Biu-Bong/dsh-menu-hidden.git"
+  },
+  "homepage": "https://github.com/Biu-Bong/dsh-menu-hidden#readme",
+  "bugs": {
+    "url": "https://github.com/Biu-Bong/dsh-menu-hidden/issues"
+  }
 }

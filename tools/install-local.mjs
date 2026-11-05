@@ -64,8 +64,12 @@ function normaliseClient(text, name, { strict = true } = {}) {
   if (uniq.length !== 1) fail(`client.js 里出现多个 loader id：${uniq.join(', ')}`)
   else if (strict && uniq[0] !== name) fail(`client.js 的 loader id 是 "${uniq[0]}"，与包名 "${name}" 不一致`)
 
-  if (/\bmodule\.exports\b/.test(text)) fail('client.js 里还有 module.exports —— 浏览器没有 CommonJS 的 module，必须 return { name, inject, apply }')
-  if (!/return\s*\{[^}]*\bapply\b/s.test(text)) fail('client.js 没有 return { name, inject, apply } 形式的导出')
+  if (/\bmodule\.exports\b/.test(text)) fail('client.js 里还有 module.exports —— 浏览器没有 CommonJS 的 module，必须 return { name, apply }')
+  if (!/return\s*\{[^}]*\bapply\b/s.test(text)) fail('client.js 没有 return { name, apply } 形式的导出')
+  // 顶层 inject 是硬依赖：服务缺一个这条 entry 就是 pending，
+  // 前端 boot 只要有一条不是 active 就整体抛错（白屏）。依赖必须走 scoped ctx.inject。
+  const exported = text.slice(text.lastIndexOf('return {'))
+  if (/\binject\s*:/.test(exported)) fail('client.js 的模块导出上带了 inject —— 服务缺失时会让 web boot 白屏，改用 scoped ctx.inject([...], callback)')
   return text
 }
 

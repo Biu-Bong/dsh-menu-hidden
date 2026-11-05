@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Menu Hiding (dsh-menu-hidden)",
-    "description": "Add Reload and Restart to the app menu; hide sidebar items, official model groups and duplicate tabs; pin a default reasoning level, auto-filling new providers and models."
+    "title": "Lazy Menu (dsh-menu-hidden)",
+    "description": "Lazy Menu: 1. Reload and Restart in the app menu. 2. Reasoning levels, context window and image input auto-filled for new models. 3. Sidebar, account-menu and model-picker items can be hidden."
   }
 }

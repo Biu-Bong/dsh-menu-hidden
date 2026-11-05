@@ -1,7 +1,18 @@
-# @local/dsh-menu-hidden · 菜单隐藏
+# dsh-menu-hidden · 懒人菜单
 
-把 DSH 界面上重复的 DeepSeek 账号 / 官方 API 入口收起来，并给应用菜单补上「刷新页面」「重启应用与 Host」。
-开关在 **设置 → 菜单隐藏**，改完立刻生效，不用刷新页面。
+开关在 **设置 → 懒人菜单**，改完立刻生效，不用刷新页面。
+
+1. 应用菜单增加刷新与重启功能。
+2. 新模型自动补足推理等级、上下文窗口和图片支持。
+3. 侧边栏、账号菜单、模型配置等多项隐藏。
+
+## 截图
+
+| 菜单隐藏 | 模型配置 | 菜单增强 |
+|---|---|---|
+| ![菜单隐藏](preview/settings-0.2.26-1.png) | ![模型配置](preview/settings-0.2.26-2.png) | ![菜单增强](preview/settings-0.2.26-3.png) |
+
+> 截图里的供应商名称与 id 均为示例数据。
 
 ## 对应关系
 
@@ -126,6 +137,7 @@ DSH 查字典用的是应用当前语言的**原样小写标签**：渲染进程
 
 ## 更新记录
 
+- **0.2.27**：启动安全。模块导出上不再写顶层 `inject`，改成 scoped `ctx.inject(...)` + 全程 try/catch —— 服务没到只降级（设置页不出现），entry 始终 active，不会再让整个前端卡在 `web boot: N entries did not activate`；配套新增 `test/client-degraded.mjs`。包补上 `repository` / `homepage` / `bugs`，`files` 补上 `shell/`。
 - **0.2.26**：自动补齐从 5 秒轮询改成「目录事件 + 60 秒兜底 stat」，稳态 CPU 降一个量级；`fs.watch` 盯目录不盯文件，避开 rename 丢事件。
 - **0.2.25**：新增「隐藏推理等级里的 `Default`」开关。
 - **0.2.24**：修 0.2.23 把供应商列表渲染三遍的问题。
@@ -146,6 +158,55 @@ DSH 查字典用的是应用当前语言的**原样小写标签**：渲染进程
 - **0.2.0**：推理等级写入 `cordis.patch.yml`。
 - **0.1.4**：菜单壳按住两帧，消掉隐藏时的闪烁。
 - **0.1.1**：修 0.1.0 的启动白屏（`module.exports` → `return { name, inject, apply }`）。
+
+## 启动安全：依赖为什么不再写在顶层 `inject` 上（0.2.27）
+
+前端 boot 收尾是这样的：
+
+```js
+for (const entry of app.loader.entries()) {
+  const state = yx[entry.fiber.state]
+  if (state !== "active") problems.push(...)
+}
+if (problems.length > 0) throw new Error(`web boot: ${problems.length} entries did not activate`)
+```
+
+**任何一条 entry 不是 active，整个前端就不启动** —— 白屏，控制台一行 `web boot: 1 entry did not activate` 或 `pending (waiting for service: slots)`，只能进 profile 目录删插件才救得回来。0.1.0 那次 `module is not defined` 就是这个后果。
+
+0.2.26 及以前，模块导出上写着：
+
+```js
+return { name: ID, inject: ["slots", "locale"], apply }
+```
+
+cordis 的 `inject` 是**硬依赖**：`slots`（由 @deepseek-ai/dsh-client-ui-layout 提供）和 `locale`（由 @deepseek-ai/dsh-client-locale 提供）只要有一个没到，这条 entry 就停在 `pending`。换一个 DSH 版本、设置界面被裁掉、或者模块加载顺序变了，都可能让服务晚到或干脆不到，而使用者看到的只是「装完插件界面就起不来了」。
+
+0.2.27 起改成 scoped inject：
+
+```js
+function apply(ctx) {
+  try { /* 隐藏引擎：读配置、注入样式、起观察器 */ } catch (error) { console.warn(error) }
+  try {
+    if (typeof ctx.inject === "function") ctx.inject(["slots", "locale"], mountSettings)
+    else mountSettings(ctx) // 老宿主没有 scoped inject，直接试一次，读不到就降级
+  } catch (error) { console.warn(error) }
+}
+
+return { name: ID, apply } // 顶层没有 inject
+```
+
+- entry 本身**永远 active**：服务到齐就挂设置页，没到就只做隐藏；
+- 隐藏引擎自己出异常也被 `try/catch` 吃掉，不会把 entry 变成 `failed`；
+- 最坏情况变成「设置里没有懒人菜单这一页」，能自己发现，不用去 profile 里删文件。
+
+用宿主自带那份 cordis 实测（`slots` / `locale` 都不提供）：
+
+| 写法 | entry 状态 | web boot |
+|---|---|---|
+| 顶层 `inject: ["slots","locale"]` | `pending` | 抛错，白屏 |
+| scoped `ctx.inject(...)` | `active` | 正常启动 |
+
+`test/client-degraded.mjs` 守这条线：服务缺失、依赖永远 pending、`slots` 是坏的、连 `ctx.effect` 都没有 —— 四种情况下 `apply` 都不许抛。
 
 ## 认节点的方式
 
@@ -201,7 +262,7 @@ node tools/install-local.mjs --target D:/somewhere/dsh-menu-hidden
 |---|---|
 | `package.json.name`、`client.js` 的 `id`、`cordis.patch.yml` 的 `id`/`name` 四处一致 | 前端 boot 找不到 factory，**整个应用停在 Failed to load plugins** |
 | `__ModuleLoader__.load(...)` 正好出现一次 | 同一份 bundle 被执行两次 → `duplicate factory registration` |
-| 没有 `module.exports`，有 `return { name, inject, apply }` | `module is not defined`，同上 |
+| 没有 `module.exports`，有 `return { name, apply }`，且顶层没有 `inject` | `module is not defined`，同上 |
 | 每个 `.js` 过一遍 `node --check` | 语法错误会让整条 bundle 报废 |
 | `icon` 指向的文件存在、`locale/zh.json` 与 `locale/en.json` 都有 `meta.title` / `meta.description` | 列表退回默认占位图与包名 |
 
@@ -255,7 +316,7 @@ duplicate factory registration for "@local/dsh-menu-hidden"
 ```text
 @scope/pkg: import failed: module is not defined
 ```
-`client.js` 用了 CommonJS 的 `module.exports`；`window.__ModuleLoader__` 的 factory 只给 `require`，导出要 `return { name, inject, apply }`。
+`client.js` 用了 CommonJS 的 `module.exports`；`window.__ModuleLoader__` 的 factory 只给 `require`，导出要 `return { name, apply }`。
 
 三步处理，代价从轻到重：
 

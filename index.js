@@ -439,37 +439,52 @@ export function apply(ctx, config = {}) {
       return
     }
     const body = await readJsonBody(request)
-    const global = typeof body.global === 'string' && LEVELS.includes(body.global) ? body.global : null
+    const featureMode =
+      typeof body.autoReasoning === 'boolean' || typeof body.autoContextWindow === 'boolean' || typeof body.autoImageInput === 'boolean'
+    const saved = featureMode ? readReasoningState() : null
+    const global = featureMode
+      ? saved.global
+      : (typeof body.global === 'string' && LEVELS.includes(body.global) ? body.global : null)
     const overrides = {}
-    const incoming = body.overrides !== null && typeof body.overrides === 'object' ? body.overrides : {}
+    const incoming = featureMode
+      ? (saved.overrides ?? {})
+      : (body.overrides !== null && typeof body.overrides === 'object' ? body.overrides : {})
     for (const [id, value] of Object.entries(incoming)) {
       // JSON 里的 __proto__ 会改掉这个对象自己的原型，不挡就会悄悄污染状态文件。
       if (id === '__proto__' || id === 'constructor' || id === 'prototype') continue
       if (value === null) overrides[id] = null
       else if (typeof value === 'string' && LEVELS.includes(value)) overrides[id] = value
     }
+    const extra = featureMode
+      ? {
+          skipReasoningLines: true,
+          ...(typeof body.autoReasoning === 'boolean' ? { autoReasoning: body.autoReasoning } : {}),
+          ...(typeof body.autoContextWindow === 'boolean' ? { autoContextWindow: body.autoContextWindow } : {}),
+          ...(typeof body.autoImageInput === 'boolean' ? { autoImageInput: body.autoImageInput } : {}),
+        }
+      : {}
     let result
     try {
-      result = applyReasoning(global, overrides, typeof body.autoFill === 'boolean' ? { autoFill: body.autoFill } : {})
+      result = applyReasoning(global, overrides, extra)
     } catch (error) {
       send(500, { ok: false, error: `写配置失败：${String((error && error.message) || error)}` })
       return
     }
     info(`reasoning applied: changed=${String(result.changed)} files=${String(result.files.length)}`)
-    result.skipped = auditLevels(global, overrides)
+    result.skipped = featureMode ? [] : auditLevels(global, overrides)
     send(200, { ok: true, levels: LEVELS, ...readStatus(), changed: result.changed, written: result.files, skipped: result.skipped })
   }
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: REASONING_ROUTE, handler: reasoningHandler }), 'dsh-menu-hidden: reasoning route')
 
-  // 配置自愈：新加的供应商 / 新加的模型缺默认档时补上。
+  // 配置自愈：新加的模型缺推理档位 / 上下文窗口时按两个开关自动补上。
   // 每轮只 stat 两个配置文件（实测 ~0.09ms）；mtime 和大小都没变就直接返回，
-  // 不读文件、不正则、不写盘。真要写的时候走的是和面板「写入配置」同一条路。
+  // 不读文件、不正则、不写盘。只跑 features（provider 的 reasoning 行留给「写入配置」按钮）。
   const fillMarks = new Map()
-  const autoFillOnce = (force) => {
+  const autoConfigOnce = (force) => {
     const state = readReasoningState()
-    if (state.autoFill === false) return
-    if (state.global === null && Object.keys(state.overrides).length === 0) return
+    const needFeatures = state.autoReasoning !== false || state.autoContextWindow !== false || state.autoImageInput !== false
+    if (!needFeatures) return
     if (force !== true) {
       let touched = false
       for (const entry of configFilesForWatch()) {
@@ -487,10 +502,15 @@ export function apply(ctx, config = {}) {
       if (!touched) return
     }
     try {
-      const result = applyReasoning(state.global, state.overrides, { autoFill: state.autoFill })
-      if (result.changed > 0) info('auto-fill: ' + String(result.changed) + ' line(s) written')
+      const result = applyReasoning(state.global, state.overrides, {
+        autoReasoning: state.autoReasoning,
+        autoContextWindow: state.autoContextWindow,
+        autoImageInput: state.autoImageInput,
+        skipReasoningLines: true,
+      })
+      if (result.changed > 0) info('auto-config: ' + String(result.changed) + ' line(s) written')
     } catch (error) {
-      info('auto-fill failed: ' + describe(error))
+      info('auto-config failed: ' + describe(error))
     }
   }
   let fillDebounce = null
@@ -498,13 +518,13 @@ export function apply(ctx, config = {}) {
     if (fillDebounce !== null) clearTimeout(fillDebounce)
     fillDebounce = setTimeout(() => {
       fillDebounce = null
-      autoFillOnce(false)
+      autoConfigOnce(false)
     }, 1500)
     if (typeof fillDebounce.unref === 'function') fillDebounce.unref()
   }
 
   ctx.effect(() => {
-    autoFillOnce(true)
+    autoConfigOnce(true)
 
     // 主通道：盯每个 profile 目录。DSH 写配置是「临时文件 + rename」，
     // 目录级的 rename 事件不会丢（盯单个文件才会，rename 之后句柄就废了）。
@@ -519,12 +539,12 @@ export function apply(ctx, config = {}) {
         if (typeof watcher.unref === 'function') watcher.unref()
         watchers.push(watcher)
       } catch (error) {
-        info('auto-fill watch failed: ' + describe(error))
+        info('auto-config watch failed: ' + describe(error))
       }
     }
 
     // 兜底：60 秒 stat 一次（两个文件、不读内容），事件通道挂了也能补上。
-    const poll = setInterval(() => { autoFillOnce(false) }, 60000)
+    const poll = setInterval(() => { autoConfigOnce(false) }, 60000)
     if (typeof poll.unref === 'function') poll.unref()
 
     return () => {
@@ -534,7 +554,7 @@ export function apply(ctx, config = {}) {
       clearInterval(poll)
       if (fillDebounce !== null) { clearTimeout(fillDebounce); fillDebounce = null }
     }
-  }, 'dsh-menu-hidden: reasoning auto-fill')
+  }, 'dsh-menu-hidden: reasoning auto-config')
 
 
   const updateHandler = async (request, response) => {

@@ -59,6 +59,8 @@ const hidden = (id) => {
 // 假 ctx：slots / locale
 const registered = []
 const ctx = {
+  // cordis 的 scoped inject：依赖到齐才回调。这里直接同步回调，模拟「服务都在」。
+  inject(_deps, callback) { callback(this) },
   get(name) {
     if (name === 'slots') {
       return {

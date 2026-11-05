@@ -15,6 +15,8 @@
  *
  * 状态（全局默认与覆盖表）存在 `$DSH_HOME/dsh-menu-hidden.reasoning.json`，
  * 免得把插件的私有状态塞进 profile 配置里。
+ * 另外两个开关（自动开启推理强度 / 自动配置上下文窗口）也存在这份状态里：
+ * 宿主侧的目录监听要读它们，放 localStorage 宿主读不到。
  */
 import { existsSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -35,7 +37,7 @@ export function statePath() {
 
 /**
  * 读状态：全局默认 + 每个 provider 的覆盖（null 表示「不设置」）。
- * @returns {{ global: string | null, overrides: Record<string, string | null> }} 状态。
+ * @returns {{ global: string | null, overrides: Record<string, string | null>, autoReasoning: boolean, autoContextWindow: boolean, autoImageInput: boolean }} 状态。
  */
 export function readState() {
   try {
@@ -46,15 +48,21 @@ export function readState() {
       if (value === null) overrides[id] = null
       else if (typeof value === 'string' && LEVELS.includes(value)) overrides[id] = value
     }
-    return { global, overrides, autoFill: parsed.autoFill !== false }
+    return {
+      global,
+      overrides,
+      autoReasoning: parsed.autoReasoning !== false,
+      autoContextWindow: parsed.autoContextWindow !== false,
+      autoImageInput: parsed.autoImageInput !== false,
+    }
   } catch {
-    return { global: null, overrides: {}, autoFill: true }
+    return { global: null, overrides: {}, autoReasoning: true, autoContextWindow: true, autoImageInput: true }
   }
 }
 
 /**
  * 写状态。
- * @param {{ global: string | null, overrides: Record<string, string | null> }} state - 状态。
+ * @param {{ global: string | null, overrides: Record<string, string | null>, autoReasoning?: boolean, autoContextWindow?: boolean, autoImageInput?: boolean }} state - 状态。
  */
 export function saveState(state) {
   writeFileSync(statePath(), `${JSON.stringify(state, null, 2)}\n`, 'utf8')
@@ -206,6 +214,47 @@ export function applyToText(text, global, overrides) {
 }
 
 /**
+ * 只补不改：给缺 provider 级 reasoning 行的供应商补上默认档。
+ *
+ * 官方的「默认推理等级」只认 provider 级的 reasoning 行：没有这一行，模型就算
+ * 声明了一堆档位，选择器也会当成「未指定」，默认档显示成 Default 或干脆空白。
+ * 所以这里只补缺失的那一行，已有的（包括手动设的）一个字都不动，也不做删除。
+ * @param {string} text - 文件内容（已统一成 \n）。
+ * @param {string | null} global - 全局默认。
+ * @param {Record<string, string | null>} overrides - 每个 provider 的覆盖。
+ * @returns {{ text: string, changed: number, added: { provider: string, level: string }[] }} 结果。
+ */
+export function ensureProviderReasoningToText(text, global, overrides) {
+  const lines = text.split('\n')
+  const located = locate(lines)
+  if (located === null) return { text, changed: 0, added: [] }
+  const added = []
+  for (const block of [...located.blocks].reverse()) {
+    const hasOverride = Object.prototype.hasOwnProperty.call(overrides ?? {}, block.id)
+    const level = hasOverride ? overrides[block.id] : global
+    if (level === null || level === undefined || level === '') continue
+    const fieldIndent = block.indent + 2
+    let present = false
+    let insertAt = block.end
+    for (let i = block.keyLine + 1; i < block.end; i += 1) {
+      const line = lines[i]
+      if (line.match(/^\s*/)[0].length !== fieldIndent) continue
+      if (/^\s*reasoning:/.test(line)) {
+        present = true
+        break
+      }
+      if (/^\s*models:\s*$/.test(line)) insertAt = i
+    }
+    if (present) continue
+    const value = level === 'off' ? '"off"' : level
+    lines.splice(insertAt, 0, `${' '.repeat(fieldIndent)}reasoning: ${value}`)
+    added.push({ provider: block.id, level })
+  }
+  added.reverse()
+  return { text: lines.join('\n'), changed: added.length, added }
+}
+
+/**
  * 从一段文本里读出每个 provider 现在的 reasoning（真读文件，不推测）。
  * @param {string} text - 文件内容（已统一成 \n）。
  * @returns {{ id: string, displayName: string, reasoning: string | null }[]} 列表。
@@ -270,6 +319,129 @@ export function fillMissingToText(text, global, overrides) {
       if (declared) continue
       lines.splice(insertAt, 0, ' '.repeat(effortsIndent + 2) + level + ': ' + value)
       added.push({ provider: block.id, model: model.id, level })
+    }
+  }
+  return { text: lines.join('\n'), changed: added.length, added }
+}
+
+/**
+ * 按模型 id / name 决定默认上下文窗口大小。
+ * GPT 系 272K、Grok 系 200K、其他一律 1M（十进制，跟官方 UI 的 K/M 换算一致）。
+ * @param {string} id - 模型 id。
+ * @param {string} name - 模型显示名。
+ * @returns {number} token 数。
+ */
+export function contextWindowFor(id, name) {
+  const label = `${id ?? ''} ${name ?? ''}`
+  if (/gpt/i.test(label)) return 272000
+  if (/grok/i.test(label)) return 200000
+  return 1000000
+}
+
+/**
+ * 给模型补齐默认配置：
+ * 1. autoReasoning：模型块里没有 reasoningEfforts 时，按官方「推理等级」开关打开的写法
+ *    补上 off/low/medium/high/max 五档，等于自动把推理强度开关打开；
+ *    已经声明 reasoningEfforts 但缺 max 的模型，补上 max: max。
+ * 2. autoContextWindow：模型块里没有 contextWindow 时，按 id/name 补上对应的窗口大小。
+ *
+ * 只补不改：已经写过的字段（包括显式的 reasoningEfforts: false）一律跳过，
+ * 重复跑幂等，不会动用户手动设过的值。
+ * @param {string} text - 文件内容（\n 分隔，已统一成 LF）。
+ * @param {{ autoReasoning?: boolean, autoContextWindow?: boolean, autoImageInput?: boolean }} flags - 三个开关。
+ * @returns {{ text: string, changed: number, added: { provider: string, model: string, field: string }[] }} 结果。
+ */
+export function autoConfigToText(text, flags = {}) {
+  const autoReasoning = flags.autoReasoning !== false
+  const autoContextWindow = flags.autoContextWindow !== false
+  const autoImageInput = flags.autoImageInput !== false
+  if (!autoReasoning && !autoContextWindow && !autoImageInput) return { text, changed: 0, added: [] }
+  const lines = text.split('\n')
+  const located = locate(lines)
+  if (located === null) return { text, changed: 0, added: [] }
+  const added = []
+  // 从后往前，插行不影响前面 block 的行号。
+  for (const block of [...located.blocks].reverse()) {
+    const modelIndent = block.indent + 4
+    const fieldIndent = block.indent + 6
+    const childIndent = block.indent + 8
+    const models = []
+    for (let i = block.keyLine + 1; i < block.end; i += 1) {
+      const match = /^(\s*)- id:\s*(\S+)\s*$/.exec(lines[i])
+      if (match !== null && match[1].length === modelIndent) models.push({ id: match[2], at: i })
+    }
+    for (const model of [...models].reverse()) {
+      let end = block.end
+      for (let j = model.at + 1; j < block.end; j += 1) {
+        if (lines[j].trim() === '') continue
+        if (lines[j].match(/^\s*/)[0].length <= modelIndent) {
+          end = j
+          break
+        }
+      }
+      let name = model.id
+      let hasEfforts = false
+      let effortsInline = false
+      let effortsAt = -1
+      let effortsInsertAt = -1
+      let effortsChildPad = ' '.repeat(childIndent)
+      let hasMax = false
+      let hasContext = false
+      let hasInput = false
+      for (let j = model.at + 1; j < end; j += 1) {
+        const line = lines[j]
+        if (line.match(/^\s*/)[0].length !== fieldIndent) continue
+        const nameMatch = /^\s*name:\s*(.+)$/.exec(line)
+        if (nameMatch !== null) name = nameMatch[1].trim().replace(/^["']|["']$/g, '')
+        const effortsMatch = /^\s*reasoningEfforts:\s*(.*)$/.exec(line)
+        if (effortsMatch !== null) {
+          hasEfforts = true
+          effortsAt = j
+          effortsInline = effortsMatch[1].trim() !== ''
+        }
+        if (/^\s*contextWindow:/.test(line)) hasContext = true
+        if (/^\s*input:/.test(line)) hasInput = true
+      }
+      if (hasEfforts && effortsAt >= 0 && !effortsInline) {
+        let lastChild = effortsAt
+        for (let j = effortsAt + 1; j < end; j += 1) {
+          const line = lines[j]
+          if (line.trim() === '') continue
+          const indent = line.match(/^\s*/)[0].length
+          if (indent <= fieldIndent) break
+          if (lastChild === effortsAt) effortsChildPad = ' '.repeat(indent)
+          if (indent === effortsChildPad.length) {
+            lastChild = j
+            if (/^\s*max:\s*/.test(line)) hasMax = true
+          }
+        }
+        effortsInsertAt = lastChild + 1
+      }
+      const pad = ' '.repeat(fieldIndent)
+      const childPad = ' '.repeat(childIndent)
+      const insert = []
+      if (autoImageInput && !hasInput) {
+        insert.push(`${pad}input: [text, image]`)
+        added.push({ provider: block.id, model: model.id, field: 'input' })
+      }
+      if (autoReasoning && !hasEfforts) {
+        insert.push(`${pad}reasoningEfforts:`)
+        insert.push(`${childPad}off: null`)
+        insert.push(`${childPad}low: low`)
+        insert.push(`${childPad}medium: medium`)
+        insert.push(`${childPad}high: high`)
+        insert.push(`${childPad}max: max`)
+        added.push({ provider: block.id, model: model.id, field: 'reasoningEfforts' })
+      }
+      if (autoContextWindow && !hasContext) {
+        insert.push(`${pad}contextWindow: ${contextWindowFor(model.id, name)}`)
+        added.push({ provider: block.id, model: model.id, field: 'contextWindow' })
+      }
+      if (insert.length > 0) lines.splice(end, 0, ...insert)
+      if (autoReasoning && hasEfforts && !effortsInline && !hasMax && effortsInsertAt > 0) {
+        lines.splice(effortsInsertAt, 0, `${effortsChildPad}max: max`)
+        added.push({ provider: block.id, model: model.id, field: 'reasoningEfforts:max' })
+      }
     }
   }
   return { text: lines.join('\n'), changed: added.length, added }
@@ -363,7 +535,7 @@ export function parseProviders(text) {
 
 /**
  * 读一下现在配置里各 provider 的实际情况（不写盘）。
- * @returns {{ global: string | null, overrides: Record<string, string | null>, files: { profile: string, file: string }[], providers: { id: string, displayName: string, reasoning: string | null }[] }} 状态。
+ * @returns {{ global: string | null, overrides: Record<string, string | null>, autoReasoning: boolean, autoContextWindow: boolean, autoImageInput: boolean, files: { profile: string, file: string }[], providers: { id: string, displayName: string, reasoning: string | null }[] }} 状态。
  */
 export function readStatus() {
   const state = readState()
@@ -381,14 +553,22 @@ export function readStatus() {
       if (!merged.has(provider.id)) merged.set(provider.id, { ...provider, profile: entry.profile })
     }
   }
-  return { global: state.global, overrides: state.overrides, autoFill: state.autoFill, files, providers: [...merged.values()] }
+  return {
+    global: state.global,
+    overrides: state.overrides,
+    autoReasoning: state.autoReasoning,
+    autoContextWindow: state.autoContextWindow,
+    autoImageInput: state.autoImageInput,
+    files,
+    providers: [...merged.values()],
+  }
 }
 
 /**
  * 套用并写盘。
  * @param {string | null} global - 全局默认。
  * @param {Record<string, string | null>} overrides - 每个 provider 的覆盖。
- * @returns {{ ok: boolean, changed: number, files: { profile: string, file: string, changed: number, providers: object[] }[] }} 结果。
+ * @returns {{ ok: boolean, changed: number, files: { profile: string, file: string, changed: number, providers: object[] }[], autoReasoning: boolean, autoContextWindow: boolean, autoImageInput: boolean }} 结果。
  */
 export function applyReasoning(global, overrides, extra = {}) {
   const files = configFiles()
@@ -398,9 +578,26 @@ export function applyReasoning(global, overrides, extra = {}) {
     const raw = readFileSync(entry.file, 'utf8')
     const crlf = raw.includes('\r\n')
     const normalized = crlf ? raw.split('\r\n').join('\n') : raw
-    const applied = applyToText(normalized, global, overrides)
-    const filled = fillMissingToText(applied.text, global, overrides)
-    const result = { text: filled.text, changed: applied.changed + filled.changed, providers: applied.providers }
+    const previousForFlags = readState()
+    const effectiveFlags = {
+      autoReasoning: typeof extra.autoReasoning === 'boolean' ? extra.autoReasoning : previousForFlags.autoReasoning,
+      autoContextWindow: typeof extra.autoContextWindow === 'boolean' ? extra.autoContextWindow : previousForFlags.autoContextWindow,
+      autoImageInput: typeof extra.autoImageInput === 'boolean' ? extra.autoImageInput : previousForFlags.autoImageInput,
+    }
+    // 默认档必须先落到 provider 级的 reasoning 行上，官方的「默认推理等级」才认得。
+    const ensured = ensureProviderReasoningToText(normalized, global, overrides)
+    const applied = extra.skipReasoningLines === true
+      ? { text: ensured.text, changed: 0, providers: parseProviders(ensured.text) }
+      : applyToText(ensured.text, global, overrides)
+    const configured = autoConfigToText(applied.text, effectiveFlags)
+    const filled = extra.skipReasoningLines === true
+      ? { text: configured.text, changed: 0, added: [] }
+      : fillMissingToText(configured.text, global, overrides)
+    const result = {
+      text: filled.text,
+      changed: ensured.changed + applied.changed + configured.changed + filled.changed,
+      providers: applied.providers,
+    }
     if (result.changed > 0) {
       const backup = `${entry.file}.menuhidden.bak`
       if (!existsSync(backup)) writeFileSync(backup, raw, 'utf8')
@@ -420,10 +617,15 @@ export function applyReasoning(global, overrides, extra = {}) {
     written.push({ profile: entry.profile, file: entry.file, changed: result.changed, providers: result.providers })
   }
   const previous = readState()
-  const autoFill = typeof extra.autoFill === 'boolean' ? extra.autoFill : previous.autoFill
-  const same = previous.global === global && previous.autoFill === autoFill &&
+  const autoReasoning = typeof extra.autoReasoning === 'boolean' ? extra.autoReasoning : previous.autoReasoning
+  const autoContextWindow = typeof extra.autoContextWindow === 'boolean' ? extra.autoContextWindow : previous.autoContextWindow
+  const autoImageInput = typeof extra.autoImageInput === 'boolean' ? extra.autoImageInput : previous.autoImageInput
+  const same = previous.global === global &&
+    previous.autoReasoning === autoReasoning &&
+    previous.autoContextWindow === autoContextWindow &&
+    previous.autoImageInput === autoImageInput &&
     Object.keys(previous.overrides).length === Object.keys(overrides).length &&
     Object.entries(overrides).every(([id, value]) => previous.overrides[id] === value)
-  if (!same) saveState({ global, overrides, autoFill })
-  return { ok: true, changed, files: written, autoFill }
+  if (!same) saveState({ global, overrides, autoReasoning, autoContextWindow, autoImageInput })
+  return { ok: true, changed, files: written, autoReasoning, autoContextWindow, autoImageInput }
 }
