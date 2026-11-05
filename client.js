@@ -47,7 +47,7 @@ function registerClient() {
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.29";
+		const VERSION = "0.2.30";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -336,6 +336,9 @@ function registerClient() {
 		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
 		const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 		const DEFAULT_LABELS = ["Default", "默认"];
+		/** 思考深度菜单里要藏掉的档位（只藏菜单项，不动模型列表、不动触发器）。 */
+		const HIDDEN_EFFORT_LABELS = ["xhigh"];
+		const EFFORT_RADIO_SELECTOR = '[role="menuitemradio"], [role="option"]';
 		const DEFAULT_RADIO_SELECTOR = '[role="menuitemradio"]';
 		const DEFAULT_TEXT_SELECTOR = '[class*="triggerEffort"], [class*="cellValue"]';
 		const MENU_SURFACE_SELECTOR = '[role="menu"]';
@@ -642,6 +645,36 @@ function registerClient() {
 		}
 		
 		/**
+		 * 思考深度菜单里不再出现 Xhigh。
+		 *
+		 * 菜单项是按模型的 reasoningEfforts 渲染的：配置里声明了 xhigh，菜单就多一项。
+		 * 这里只处理界面，配置里那行由宿主侧的 autoConfigToText 顺手删掉；两边都做，
+		 * 才不会出现「菜单没了、配置还写着、换台机器又冒出来」。
+		 * 模型列表里同名的模型不动 —— 和 Default 一样靠 id/class 区分。
+		 * @param {Element | null} root - 扫描起点。
+		 */
+		function sweepEffortLevels(root) {
+			if (root === null || root === undefined || root.nodeType !== 1) return;
+			const items = root.matches(EFFORT_RADIO_SELECTOR)
+				? [root, ...root.querySelectorAll(EFFORT_RADIO_SELECTOR)]
+				: [...root.querySelectorAll(EFFORT_RADIO_SELECTOR)];
+			for (const item of items) {
+				const menu = item.closest(MENU_SURFACE_SELECTOR);
+				if (menu === null) continue;
+				const id = String(item.id ?? "");
+				const cls = String(item.className ?? "");
+				if (id.includes("-model-") || cls.includes("modelOption")) continue;
+				const text = (item.textContent ?? "").trim().toLowerCase();
+				if (!HIDDEN_EFFORT_LABELS.includes(text)) continue;
+				if (document.activeElement === item) {
+					const next = [...menu.querySelectorAll(EFFORT_RADIO_SELECTOR)].find((other) =>
+						other !== item && !HIDDEN_EFFORT_LABELS.includes((other.textContent ?? "").trim().toLowerCase()));
+					if (next !== undefined) next.focus();
+				}
+				setHidden(item, true);
+			}
+		}
+		/**
 		 * 对一棵子树（含它自己）跑各步。root 可以是 document.body，也可以是刚挂上来的节点 ——
 		 * 只扫新增的那一小块，流式输出时不会因为每次都全量 querySelectorAll 把主线程拖住。
 		 * @param {Element | null} root - 扫描起点。
@@ -650,7 +683,7 @@ function registerClient() {
 			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
 
-			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav, sweepProviderDefault]) {
+			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav, sweepProviderDefault, sweepEffortLevels]) {
 				try {
 					step(root);
 				} catch (error) {

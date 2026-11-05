@@ -81,6 +81,7 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 - **自动开启图片支持**：自动补 `input: image`。
 - **按供应商覆盖**：全局默认一档，单独给 OpenAI 走 `max`、Grok 走 `high`、Gemini 走 `medium`；写完热读生效，不用重启，下一条消息就带上新档位。
 - **新供应商、新模型也自动补**：上面三个开关同时盯 profile 目录，新加的供应商按全局默认补一行 `reasoning`，新模型往 `reasoningEfforts` 里补一条 —— 只加不改，手写的值一个字不动，1.5 秒防抖。
+- **思考深度只留六档（常开）**：聊天框那个思考深度菜单里不再出现 `Xhigh`，配置里 `reasoningEfforts` 的那一行也删掉；只删这一行，别的档位和注释一个字不动。
 - **隐藏推理菜单里的 `Default`（常开）**：中转站常把「没指定」当成关掉思考，这个选项直接藏掉，免得误选；同一菜单里没有别的档位时不动手。
 
 ### 三、菜单增强
@@ -193,6 +194,7 @@ node test/shell-selfcheck.mjs
 
 ## 更新记录
 
+- **0.2.30**：思考深度彻底去掉 `xhigh`。设置页下拉框早就只有六档，但聊天框那个思考深度菜单是按模型 `reasoningEfforts` 渲染的 —— 配置里声明了 `xhigh`，菜单里就还会多一项 `Xhigh`。现在两处一起处理：界面上把这一项藏掉，配置里那行也删掉（幂等，别的档位与注释不动）。
 - **0.2.29**：推理等级去掉 `xhigh`，档位收敛成 off / minimal / low / medium / high / max 六档，下拉框里不再出现这一档；老配置里写过的 `xhigh` 会被当成「跟随全局」读回，不写盘也不删行。
 - **0.2.28**：外壳补丁自愈。写进 `main.js` 的条件从恒真改成运行时自检，卸载后菜单项下次启动自动消失，重装又自动出现；老版本写进去的恒真补丁仍能被识别、还原并顺手升级。CLI 写入改成临时文件 + rename 原子替换。
 - **0.2.27**：启动安全。顶层不再写 `inject`，改成 scoped `ctx.inject(...)` + 全程 try/catch —— 服务没到只降级，entry 始终 active，不会再让整个前端卡在 `web boot: N entries did not activate`。

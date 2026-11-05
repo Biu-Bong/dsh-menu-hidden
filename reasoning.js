@@ -339,6 +339,35 @@ export function contextWindowFor(id, name) {
 }
 
 /**
+ * 删掉每个模型 reasoningEfforts 里的 xhigh 行。
+ *
+ * 推理菜单是按这份声明渲染的：声明里留着 xhigh，菜单里就多一项 Xhigh；换台机器、换个 profile，
+ * 只要配置还在，那一项就再冒出来。所以除了在界面上藏，配置里这一行也要顺手删掉。
+ * 只删键为 xhigh 的那一行 —— 同级的其它档位、缩进、相邻注释一个字不动。
+ * 行内写法（reasoningEfforts: { xhigh: xhigh }）不碰，那是人手写的，动了容易踩注释。
+ * @param {string[]} lines - 文件行，原地修改。
+ * @returns {number} 删掉的行数。
+ */
+function pruneXhighLines(lines) {
+  let removed = 0
+  for (let i = 0; i < lines.length; i += 1) {
+    const head = /^(\s*)reasoningEfforts:\s*$/.exec(lines[i])
+    if (head === null) continue
+    const base = head[1].length
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (lines[j].trim() === '') continue
+      const indent = lines[j].match(/^\s*/)[0].length
+      if (indent <= base) break
+      if (!/^\s*xhigh:\s*\S*\s*$/.test(lines[j])) continue
+      lines.splice(j, 1)
+      j -= 1
+      removed += 1
+    }
+  }
+  return removed
+}
+
+/**
  * 给模型补齐默认配置：
  * 1. autoReasoning：模型块里没有 reasoningEfforts 时，按官方「推理等级」开关打开的写法
  *    补上 off/low/medium/high/max 五档，等于自动把推理强度开关打开；
@@ -357,8 +386,10 @@ export function autoConfigToText(text, flags = {}) {
   const autoImageInput = flags.autoImageInput !== false
   if (!autoReasoning && !autoContextWindow && !autoImageInput) return { text, changed: 0, added: [] }
   const lines = text.split('\n')
+  // 0.2.30：先把 reasoningEfforts 里的 xhigh 删掉，再谈补齐。
+  const pruned = autoReasoning ? pruneXhighLines(lines) : 0
   const located = locate(lines)
-  if (located === null) return { text, changed: 0, added: [] }
+  if (located === null) return { text: lines.join('\n'), changed: pruned, added: [], removed: pruned }
   const added = []
   // 从后往前，插行不影响前面 block 的行号。
   for (const block of [...located.blocks].reverse()) {
@@ -444,7 +475,7 @@ export function autoConfigToText(text, flags = {}) {
       }
     }
   }
-  return { text: lines.join('\n'), changed: added.length, added }
+  return { text: lines.join('\n'), changed: added.length + pruned, added, removed: pruned }
 }
 
 /**
