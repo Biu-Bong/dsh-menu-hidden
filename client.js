@@ -47,7 +47,7 @@ function registerClient() {
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.28";
+		const VERSION = "0.2.29";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -1296,7 +1296,7 @@ function registerClient() {
 
 			const levels = reasoning !== null && Array.isArray(reasoning.levels)
 				? reasoning.levels
-				: ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+				: ["off", "minimal", "low", "medium", "high", "max"];
 			const providers = reasoning !== null && Array.isArray(reasoning.providers) ? reasoning.providers : [];
 			const levelOption = (value, label) => React.createElement("option", { key: value, value }, label);
 			const levelOptions = (extra) => [...extra, ...levels.map((level) => levelOption(level, level))];

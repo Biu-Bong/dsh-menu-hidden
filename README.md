@@ -76,7 +76,7 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 
 ### 二、模型配置
 
-- **自动开启推理等级**：补齐 off / minimal / low / medium / high / xhigh / max 七档，老模型缺 `max` 也补。
+- **自动开启推理等级**：补齐 off / minimal / low / medium / high / max 六档，老模型缺 `max` 也补。
 - **自动配置上下文窗口**：GPT 272K、Grok 200K、其余 1M。
 - **自动开启图片支持**：自动补 `input: image`。
 - **按供应商覆盖**：全局默认一档，单独给 OpenAI 走 `max`、Grok 走 `high`、Gemini 走 `medium`；写完热读生效，不用重启，下一条消息就带上新档位。
@@ -165,7 +165,17 @@ test/*.mjs               回归测试（node test/client-dom.mjs 等，共 7 个
 manifest: market/index.json  插件市集条目
 ```
 
-- 测试：`node test/client-dom.mjs`、`test/client-degraded.mjs`、`test/locale.mjs`、`test/shell-selfcheck.mjs`、`test/client-load.mjs`、`test/client-subagent-off.mjs`、`test/client-links.mjs`。
+- 测试（前五个要吃 `client.js` 路径，`test/client-links.mjs` 与 `test/shell-selfcheck.mjs` 直接跑）：
+
+```bash
+node test/client-dom.mjs client.js
+node test/client-degraded.mjs client.js
+node test/client-load.mjs client.js
+node test/client-subagent-off.mjs client.js
+node test/locale.mjs client.js
+node test/client-links.mjs
+node test/shell-selfcheck.mjs
+```
 - 本地覆盖安装：`node tools/install-local.mjs`（先体检，不过就一个字节都不写）；`--dry-run` 只检查；`--check <目录>` 体检已装好的那份；`--from plugin` 从开发副本装并自动改包名。
 - 插件列表里的图标来自 `package.json` 的 `icon`，标题和描述来自 `locale/*.json` 的 `meta.title` / `meta.description`；改完记得抬 `version`，否则字段清单缓存会继续用旧标题。
 
@@ -183,6 +193,7 @@ manifest: market/index.json  插件市集条目
 
 ## 更新记录
 
+- **0.2.29**：推理等级去掉 `xhigh`，档位收敛成 off / minimal / low / medium / high / max 六档，下拉框里不再出现这一档；老配置里写过的 `xhigh` 会被当成「跟随全局」读回，不写盘也不删行。
 - **0.2.28**：外壳补丁自愈。写进 `main.js` 的条件从恒真改成运行时自检，卸载后菜单项下次启动自动消失，重装又自动出现；老版本写进去的恒真补丁仍能被识别、还原并顺手升级。CLI 写入改成临时文件 + rename 原子替换。
 - **0.2.27**：启动安全。顶层不再写 `inject`，改成 scoped `ctx.inject(...)` + 全程 try/catch —— 服务没到只降级，entry 始终 active，不会再让整个前端卡在 `web boot: N entries did not activate`。
 - **0.2.26**：自动补齐从 5 秒轮询改成「目录事件 + 60 秒兜底 stat」，稳态 CPU 降一个量级。

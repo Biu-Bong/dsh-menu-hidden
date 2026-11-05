@@ -23,7 +23,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /** DSH 认的推理等级取值（dsh-llm-pi-ai 的 THINKING_LEVELS）。 */
-export const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+export const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'max']
 
 /** DSH 主目录。 */
 export function dshHome() {
