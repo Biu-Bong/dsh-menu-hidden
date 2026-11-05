@@ -173,6 +173,7 @@ node test/client-dom.mjs client.js
 node test/client-degraded.mjs client.js
 node test/client-load.mjs client.js
 node test/client-subagent-off.mjs client.js
+node test/effort-xhigh.mjs client.js
 node test/locale.mjs client.js
 node test/client-links.mjs
 node test/shell-selfcheck.mjs
