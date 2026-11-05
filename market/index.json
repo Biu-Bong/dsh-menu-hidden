@@ -45,12 +45,12 @@
     {
       "name": "dsh-menu-hidden",
       "title": {
-        "zh": "菜单隐藏",
-        "en": "Menu Hiding"
+        "zh": "懒人菜单",
+        "en": "Lazy Menu"
       },
       "description": {
-        "zh": "收起 DSH 里重复的 DeepSeek 账号 / 官方 API 入口，隐藏侧边栏项目、账号菜单的意见反馈与退出登录，给应用菜单补上刷新与重启；推理等级一键写死，新供应商新模型自动补齐。",
-        "en": "Hide the duplicate DeepSeek account / official API entries, sidebar items and the Feedback / Sign out items; add Reload / Restart to the application menu; pin a reasoning level and auto-fill new providers and models."
+        "zh": "懒人菜单：1. 应用菜单补上刷新与重启；2. 新模型自动补齐推理等级、上下文窗口和图片支持；3. 侧边栏、账号菜单、模型配置等多项隐藏。",
+        "en": "Lazy Menu: 1. Reload and Restart in the app menu. 2. Reasoning levels, context window and image input auto-filled for new models. 3. Sidebar, account-menu and model-picker items can be hidden."
       },
       "icon": "icon.svg",
       "author": "Biu-Bong",
@@ -63,12 +63,13 @@
         "keywords": [
           "menu",
           "hide",
-          "deepseek",
           "reasoning",
           "settings",
+          "lazy-menu",
           "菜单",
           "隐藏",
-          "推理等级"
+          "推理等级",
+          "懒人菜单"
         ],
         "labels": [
           "zh-only",
@@ -80,12 +81,12 @@
       },
       "versions": [
         {
-          "version": "0.2.26",
-          "publishTimestamp": 1793806495,
+          "version": "0.2.28",
+          "publishTimestamp": 1793875198,
           "source": {
             "type": "git",
             "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
-            "commit": "f7c35b2008a6c1b32db00be364d7407e35367067"
+            "commit": "a81a81a3045f8213825a8303436bb21b707a8724"
           },
           "engines": {
             "dsh": ">=0.2.0-rc.1"
