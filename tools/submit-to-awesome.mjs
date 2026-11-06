@@ -48,8 +48,9 @@ const entry = `url: https://github.com/${OWNER}/${REPO}
 name: ${OWNER}/${REPO}
 category: ui
 description:
-  en: Hides the duplicate DeepSeek account / official API entries in the model picker, in Settings → Models and in the subagent model list; hides sidebar items and the Feedback / Sign out items of the account menu; adds Reload / Restart to the application menu; writes a per-provider reasoning level into the profile config so relays that report no reasoning strength still show one.
-  zh: 收起模型选择框、设置·模型和子智能体列表里重复的 DeepSeek 账号 / 官方 API，隐藏侧边栏项目与账号菜单的意见反馈、退出登录，给应用菜单补上刷新与重启，并按供应商把推理等级写进配置（中转站取不到推理强度也能显示）。
+  en: Lazy Menu for DSH — hide the duplicate DeepSeek account / official API entries in the model picker, in Settings → Models and in the subagent model list, plus sidebar and account-menu items (14 toggles); auto-fill reasoning levels (low / medium / high / max), context window and image input for new models; add Reload / Restart to the application menu with a backup and one-click restore.
+  zh: 懒人菜单：收起模型选择框、设置·模型、子智能体里重复的 DeepSeek 账号 / 官方 API 分组，隐藏侧边栏五项与账号菜单三项（共 14 个开关）；给新模型自动补推理等级（low / medium / high / max）、上下文窗口与图片支持；应用菜单补上刷新与重启，写入前自动备份、可一键还原。
+icon: https://raw.githubusercontent.com/${OWNER}/${REPO}/main/docs/icon-180.png
 `
 
 const repo = await api(`/repos/${OWNER}/${REPO}`)
@@ -133,16 +134,17 @@ const pr = await api(`/repos/${UPSTREAM}/pulls`, {
     head: `${OWNER}:${BRANCH}`,
     base: 'main',
     body: [
-      `Adds **${OWNER}/${REPO}** — a DSH bundle that hides the duplicate DeepSeek account / official API entries (model picker groups and Settings rows), hides the Feedback and Sign out items of the account menu, adds Reload / Restart to the application menu, and writes per-provider reasoning levels into the profile config.`,
+      `Adds **${OWNER}/${REPO}** — Lazy Menu for DSH: hides the duplicate DeepSeek account / official API entries (model picker groups, Settings rows and the subagent list), hides the sidebar and account-menu items (14 toggles in total), auto-fills reasoning levels (low / medium / high / max), context window and image input for new models, and adds Reload / Restart to the application menu with a backup and one-click restore.`,
       '',
-      '- `package.json` declares `dsh.bundle` (`./cordis.patch.yml`) — the repo installs with `dsh plugin add github:Biu-Bong/dsh-menu-hidden`.',
-      '- Seven toggles in **Settings → 菜单隐藏**; five of them act on the DOM immediately, the application-menu patch is a button plus one restart.',
+      '- `package.json` declares `dsh.bundle` (`./cordis.patch.yml`) — installs with `dsh plugin add github:Biu-Bong/dsh-menu-hidden`.',
+      '- 14 toggles in **Settings → 懒人菜单 → 菜单隐藏**; the application-menu patch is a button plus one restart, keeps `.menuhidden.bak` and can be reverted byte-for-byte.',
+      '- Storefront icon added: `docs/icon-180.png` (the tile used to fall back to the owner avatar).',
       '- Repository topic `dsh-plugin` is set.',
       '',
       'Install:',
       '',
       '```bash',
-      'dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.2.4',
+      'dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.2.30',
       '```',
     ].join('\n'),
   }),
