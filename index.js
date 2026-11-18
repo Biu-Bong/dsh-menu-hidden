@@ -493,7 +493,7 @@ async function fetchJson(url, timeoutMs) {
 }
 
 /**
- * 最新版本号。api.github.com 未登录时限流很凶（这台机器上就直接 403），
+ * 最新版本号。api.github.com 未登录时限流很凶，
  * 所以先读 raw 上的 package.json，再退到 jsdelivr，最后才试 GitHub API。
  */
 async function latestRelease() {

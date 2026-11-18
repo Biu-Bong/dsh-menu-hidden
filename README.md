@@ -226,7 +226,7 @@ node test/shell-asar.mjs
   - 头部写入改成 `writeExact()` 循环写满（Windows 上 `writeSync` 一次可能只写一部分），写完立刻回读、逐字节比对、再 `JSON.parse` 校验，不一致直接抛错。
   - 新增 `isBrokenOverride()`：能认出上面那种半改残局；设置页状态行会显示「覆盖层不完整，点「还原」就能修好」，还原按钮不再灰掉。CLI 的 `--revert` 也会照样把它收拾干净。
   - 设置页所有请求加 30 秒超时 + `AbortController`，宿主没回包时按钮会自己解开并报错，不再无限转圈；宿主侧路由也统一兜 try/catch，异常一律变成结构化 JSON 回包。
-  - `shell/patch-shell-menu.mjs` 在 `LOCALAPPDATA` / `Program Files` 之外，再扫各盘根目录的 `DeepSeekApp`、`DeepSeek Harness`，装在 D 盘也能自动认出；新增 `外壳菜单-写入.cmd` / `外壳菜单-还原.cmd`，应用起不来时可以脱离应用直接修。
+  - `shell/patch-shell-menu.mjs` 在 `LOCALAPPDATA` / `Program Files` 之外，再扫各盘根目录下的常见安装目录名，装在非系统盘也能自动认出；新增 `外壳菜单-写入.cmd` / `外壳菜单-还原.cmd`，应用起不来时可以脱离应用直接修。
   - `test/shell-asar.mjs` 造的迷你归档改成按 4 字节对齐（并断言确实有填充），补了半改残局的用例。
 - **0.2.34**：适配 DSH 0.2.2-rc.5（桌面版打成 `resources/app.asar`）。
   - 外壳补丁改走 asar 覆盖层：把 `lib/main.js` 标成 `unpacked`、正文写进 `app.asar.unpacked/lib/main.js`，归档数据区一字节不动，还原逐字节回官方原样；不再需要「等长替换 + 重算 integrity」，自检表达式照旧写满。asar 版要重启应用才生效（Electron 进程内缓存 asar 头部），设置页会显示「需要重启」。
@@ -234,7 +234,7 @@ node test/shell-asar.mjs
   - 侧边栏「定时任务」在新版改名「自动化任务」，八种语言的 `panel` 文案都补上；「插件」「更多」也补齐其余语言。
   - 新增 `shell/asar-patch.mjs` 与 `test/shell-asar.mjs`（造迷你归档，验 apply / revert / 数据区不动 / 头部等长）。
 - **0.2.33**：上一版那两个开关从单列的「定时任务」一组挪进「模型选择框」组，紧跟「隐藏「DeepSeek官方 API」分组」后面，所有分组隐藏项一屏看完；`groupAutomation` 文案删掉、行为与默认值（开）不变。
-- **0.2.32**：菜单隐藏里新增两个开关（0.2.33 起并进「模型选择框」组）：「隐藏定时任务里的「DeepSeek 账号」分组」「隐藏定时任务里的「DeepSeek官方 API」分组」。定时任务对话框（`@michengai/dsh-automation`）的模型下拉框不是模型选择器那套 `section[data-menu-group]`，而是 primitives 的 `Menu`：分组标题是 `div[role="presentation"]`，选项是它后面的兄弟节点，菜单壳靠插件传入的 `listClassName` 认（`dsh-st-form-menu`）。所以按「标题行 + 后续兄弟」成块藏，标题掉了模型一起掉，第三方分组（WorkBuddy / MX-* / mxgm / mxgpt …）原样保留；菜单是 portal 到 body 的，观察器照样抓得住，打开时不闪。
+- **0.2.32**：菜单隐藏里新增两个开关（0.2.33 起并进「模型选择框」组）：「隐藏定时任务里的「DeepSeek 账号」分组」「隐藏定时任务里的「DeepSeek官方 API」分组」。第三方定时任务插件的模型下拉框不是模型选择器那套 `section[data-menu-group]`，而是 primitives 的 `Menu`：分组标题是 `div[role="presentation"]`，选项是它后面的兄弟节点，菜单壳靠插件传入的 `listClassName` 认（`dsh-st-form-menu`）。所以按「标题行 + 后续兄弟」成块藏，标题掉了模型一起掉，第三方供应商分组原样保留；菜单是 portal 到 body 的，观察器照样抓得住，打开时不闪。
 - **0.2.31**：菜单增强里新增「侧边栏标签页菜单增强」。右栏标签页（dockkit）的右键菜单原本只有「关闭」一项，现在补齐 Chrome 那一套：关闭其他标签页 / 关闭左侧标签页 / 关闭右侧标签页 / 关闭全部标签页；没得关的项自动置灰（最左页的「关闭左侧」、只剩一页时的「关闭其他」、最右页的「关闭右侧」）。实现不碰别人的组件：等菜单渲染完，复制它自带的关闭项节点（样式完全一致），换文案换点击逻辑再挂回去；关页直接点那页自己的关闭钮，和手点是同一条路径。开关在「菜单增强」里，ⓘ 有说明。
 - **0.2.30**：思考深度彻底去掉 `xhigh`，菜单里剩 `Low` / `Medium` / `High` / `Max` 四档。设置页下拉框早就不带这一档，但聊天框那个思考深度菜单是按模型 `reasoningEfforts` 渲染的 —— 配置里声明了 `xhigh`，菜单里就还会多一项 `Xhigh`。现在两处一起处理：界面上把这一项藏掉，配置里那行也删掉（幂等，别的档位与注释不动）。
 - **0.2.29**：推理等级去掉 `xhigh`，档位收敛成 low / medium / high / max 四档（`off` 为关闭），下拉框里不再出现这一档；老配置里写过的 `xhigh` 会被当成「跟随全局」读回，不写盘也不删行。

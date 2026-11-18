@@ -366,7 +366,7 @@ function registerClient() {
 		const ROW_NAME_SELECTOR = '[class*="_rowName"]';
 		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
 		/**
-		 * 定时任务对话框（@michengai/dsh-automation）的模型下拉框。
+		 * 第三方定时任务插件的模型下拉框。
 		 * 它用 primitives 的 Menu（items 数组）而不是模型下拉框那套 section[data-menu-group]，
 		 * 唯一稳定的抓手是插件自己传进去的 listClassName：dsh-st-form-menu。
 		 * portal:true 会把这个菜单挂到 document.body 上，所以只能在 body 那棵树里找。

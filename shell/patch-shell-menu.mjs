@@ -91,7 +91,7 @@ function guessFile() {
     candidates.push(join(root, 'resources', 'app.asar', 'lib', 'main.js'))
   }
 
-  // 装在非系统盘（例如 D:\DeepSeekApp）时上面几条都猜不到，扫一下各盘根目录下的常见安装名。
+  // 装在非系统盘时上面几条都猜不到，扫一下各盘根目录下的常见安装目录名。
   for (const drive of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
     for (const folder of ['DeepSeekApp', 'DeepSeek Harness']) {
       const root = `${drive}:\\${folder}`

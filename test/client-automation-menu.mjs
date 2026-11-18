@@ -1,4 +1,4 @@
-// 定时任务对话框（@michengai/dsh-automation）的模型下拉框：DeepSeek 账号 / 官方 API 两组要整块藏，
+// 第三方定时任务插件的模型下拉框：DeepSeek 账号 / 官方 API 两组要整块藏，
 // 第三方分组原样留着；不带 dsh-st-form-menu 的菜单一个像素都不许动。
 import fs from 'node:fs'
 import { JSDOM } from 'jsdom'
@@ -46,7 +46,7 @@ const menuHTML = `
     <div role="presentation" class="_label_abc" id="lblOfficial">DeepSeek</div>
     <div class="_itemWrap_abc"><button type="button" role="menuitem" id="offA">DeepSeek-V4.1-Flash 1017</button></div>
     <div class="_itemWrap_abc"><button type="button" role="menuitem" id="offB">DeepSeek-V4-Pro</button></div>
-    <div role="presentation" class="_label_abc" id="lblWork">WorkBuddy</div>
+    <div role="presentation" class="_label_abc" id="lblWork">ThirdParty</div>
     <div class="_itemWrap_abc"><button type="button" role="menuitem" id="workA">Auto</button></div>
   </div>
 </div>
@@ -75,8 +75,8 @@ const result = {
   accountModels: [hiddenItem('acctA'), hiddenItem('acctB')],
   officialLabel: hidden('lblOfficial'),
   officialModels: [hiddenItem('offA'), hiddenItem('offB')],
-  workbuddyLabel: hidden('lblWork'),
-  workbuddyModel: hiddenItem('workA'),
+  thirdPartyLabel: hidden('lblWork'),
+  thirdPartyModel: hiddenItem('workA'),
   otherMenuDeepSeek: hidden('lblOtherDeepSeek'),
   otherMenuModel: hiddenItem('otherA'),
   menuVisible: window.document.getElementById('autoMenu').style.visibility !== 'hidden',
@@ -87,7 +87,7 @@ if (result.accountLabel !== true) failures.push('账号分组标题没藏')
 if (result.accountModels.some((v) => v !== true)) failures.push('账号分组的模型没跟着藏')
 if (result.officialLabel !== true) failures.push('官方 API 分组标题没藏')
 if (result.officialModels.some((v) => v !== true)) failures.push('官方 API 分组的模型没跟着藏')
-if (result.workbuddyLabel !== false || result.workbuddyModel !== false) failures.push('第三方分组被误伤')
+if (result.thirdPartyLabel !== false || result.thirdPartyModel !== false) failures.push('第三方分组被误伤')
 if (result.otherMenuDeepSeek !== false || result.otherMenuModel !== false) failures.push('非定时任务菜单被误伤')
 if (result.menuVisible !== true) failures.push('菜单壳的 visibility 没还回去')
 
