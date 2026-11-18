@@ -103,6 +103,17 @@ function readExact(fd, size, position) {
 }
 
 /**
+ * 头部 JSON 之后的填充字节数：asar 把头部 pickle 按 4 字节对齐，
+ * 所以数据区起点是 `16 + align4(jsonLength)`，不是 `16 + jsonLength`。
+ * 少算这几个字节会让所有条目读起来整体偏移，读到的正文是错位的垃圾。
+ * @param {number} jsonLength - 头部 JSON 的字节数。
+ * @returns {number} 对齐后的长度。
+ */
+function align4(jsonLength) {
+  return (jsonLength + 3) & ~3
+}
+
+/**
  * 解析归档头。
  * @param {number} fd - 归档句柄。
  * @returns {{ header: any, jsonLength: number, dataStart: number }} 头信息。
@@ -110,10 +121,10 @@ function readExact(fd, size, position) {
 function readHeader(fd) {
   const prologue = readExact(fd, HEADER_BASE, 0)
   // [0..4) pickle 头 = 4；[4..8) 头部 pickle 的 payload 长度；[8..12) 该 pickle 的 size 前缀；
-  // [12..16) 头部 JSON 字符串长度；[16..) JSON 本体。
+  // [12..16) 头部 JSON 字符串长度；[16..) JSON 本体；之后补齐到 4 字节边界才是数据区。
   if (prologue.readUInt32LE(0) !== 4) throw new Error('不是 asar 归档：头部 pickle 前缀异常')
   const jsonLength = prologue.readUInt32LE(12)
-  return { header: JSON.parse(readExact(fd, jsonLength, HEADER_BASE).toString('utf8')), jsonLength, dataStart: HEADER_BASE + jsonLength }
+  return { header: JSON.parse(readExact(fd, jsonLength, HEADER_BASE).toString('utf8')), jsonLength, dataStart: HEADER_BASE + align4(jsonLength) }
 }
 
 /**
@@ -134,7 +145,24 @@ function findEntry(header, entry) {
 }
 
 /**
- * 头部 JSON 原长度写回，短的用空格补齐。
+ * 把缓冲区整段写到指定位置：`writeSync` 一次可能只写一部分（Windows 上尤其），
+ * 剩下没写的部分必须接着补，否则头部就残缺了 —— 那是直接让应用起不来的事故。
+ * @param {number} fd - 归档句柄。
+ * @param {Buffer} buffer - 内容。
+ * @param {number} position - 起始偏移。
+ * @returns {void}
+ */
+function writeExact(fd, buffer, position) {
+  let done = 0
+  while (done < buffer.length) {
+    const wrote = writeSync(fd, buffer, done, buffer.length - done, position + done)
+    if (wrote <= 0) throw new Error(`写到 ${done}/${buffer.length} 字节就停了，归档可能被锁`)
+    done += wrote
+  }
+}
+
+/**
+ * 头部 JSON 原长度写回，短的用空格补齐，写完立刻回读校验。
  * @param {number} fd - 归档句柄。
  * @param {any} header - 头对象。
  * @param {number} jsonLength - 原始 JSON 长度（字节）。
@@ -145,7 +173,18 @@ function writeHeader(fd, header, jsonLength) {
   const bytes = Buffer.byteLength(text, 'utf8')
   if (bytes > jsonLength) throw new Error(`头部变长了（${bytes} > ${jsonLength}），拒绝写回`)
   if (bytes < jsonLength) text += ' '.repeat(jsonLength - bytes)
-  writeSync(fd, Buffer.from(text, 'utf8'), 0, jsonLength, HEADER_BASE)
+
+  const buffer = Buffer.from(text, 'utf8')
+  writeExact(fd, buffer, HEADER_BASE)
+
+  // 回读校验：长度、字节、可解析性三项都得对上，否则宁可抛错也不留半截头部。
+  const back = readExact(fd, jsonLength, HEADER_BASE)
+  if (!back.equals(buffer)) throw new Error('头部回读与写入不一致（归档被占用或被回滚）')
+  try {
+    JSON.parse(back.toString('utf8'))
+  } catch (error) {
+    throw new Error(`头部回读无法解析：${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 /**
@@ -246,21 +285,57 @@ export function isOverridden(archive, entry) {
 }
 
 /**
- * 安装 / 更新覆盖层：条目改标 unpacked（去掉 integrity），正文写进 `.unpacked`。
+ * 归档处于「半改」状态：条目说自己是 unpacked，覆盖文件却不在。
+ *
+ * 这是唯一会让 Electron 起不来的组合（读不到 main.js）。正常流程不会产生它，
+ * 但断电、强杀进程、或者旧版本先改头部再写文件的顺序都可能留下这种残局，
+ * 所以状态检查要能认出来，并且能一键收拾干净。
+ * @param {string} archive - 归档路径。
+ * @param {string} entry - 条目名。
+ * @returns {boolean} 是半改状态则 true。
+ */
+export function isBrokenOverride(archive, entry) {
+  return withNoAsar(() => {
+    let fd
+    try {
+      fd = openSync(archive, 'r')
+      const unpacked = findEntry(readHeader(fd).header, entry)?.unpacked === true
+      return unpacked && !existsSync(overridePath(archive, entry))
+    } catch {
+      return false
+    } finally {
+      if (fd !== undefined) closeSync(fd)
+    }
+  })
+}
+
+/**
+ * 安装 / 更新覆盖层：正文先落到 `.unpacked`，**最后**才把条目改标 unpacked（去掉 integrity）。
+ *
+ * 顺序是有讲究的：反过来的话，中途断电 / 进程被杀就会留下「条目说自己是 unpacked，
+ * 覆盖文件却不存在」的状态，Electron 下次启动直接崩。现在最坏情况只是多了一个没人读的文件，
+ * 归档仍是完整可启动的 packed 态。
  *
  * 幂等：已经是覆盖态时只重写覆盖文件，不动头部。
  * @param {string} archive - 归档路径。
  * @param {string} entry - 条目名。
  * @param {string} text - 新的正文（长度任意）。
- * @returns {{ changed: boolean, bytes: number }} 结果。
+ * @returns {{ changed: boolean, bytes: number, headerTouched: boolean }} 结果。
  */
 export function writeOverride(archive, entry, text) {
   const override = overridePath(archive, entry)
   const bytes = Buffer.byteLength(text, 'utf8')
+
+  // 1) 先写覆盖文件：失败也不会让归档进入半改状态。
+  mkdirSync(dirname(override), { recursive: true })
+  writeFileSync(override, text, 'utf8')
+
+  // 2) 再改头部；失败就把覆盖文件删掉，保持「没有覆盖层」的一致状态。
   return withNoAsar(() => {
     let headerTouched = false
-    const fd = openSync(archive, 'r+')
+    let fd
     try {
+      fd = openSync(archive, 'r+')
       const { header, jsonLength } = readHeader(fd)
       const found = findEntry(header, entry)
       if (found === null) throw new Error(`归档里没有 ${entry}`)
@@ -270,11 +345,12 @@ export function writeOverride(archive, entry, text) {
         writeHeader(fd, header, jsonLength)
         headerTouched = true
       }
+    } catch (error) {
+      if (!headerTouched && existsSync(override)) unlinkSync(override)
+      throw error
     } finally {
-      closeSync(fd)
+      if (fd !== undefined) closeSync(fd)
     }
-    mkdirSync(dirname(override), { recursive: true })
-    writeFileSync(override, text, 'utf8')
     return { changed: true, bytes, headerTouched }
   })
 }

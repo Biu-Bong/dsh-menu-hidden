@@ -47,7 +47,7 @@ function registerClient() {
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.34";
+		const VERSION = "0.2.35";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -155,6 +155,7 @@ function registerClient() {
 				shellStateOff: "未改动",
 				shellStateMissing: "没找到外壳 main.js",
 				shellStateRestart: "重启后生效",
+				shellStateBroken: "覆盖层不完整，点「还原」就能修好",
 				shellApply: "写入补丁",
 				shellRollback: "还原",
 				shellWrote: "已写入。",
@@ -276,6 +277,7 @@ function registerClient() {
 				shellStateOff: "Not applied",
 				shellStateMissing: "Shell main.js not found",
 				shellStateRestart: "applies after a restart",
+				shellStateBroken: "Overlay is incomplete; click Revert to repair",
 				shellApply: "Apply patch",
 				shellRollback: "Revert",
 				shellWrote: "Written.",
@@ -1039,6 +1041,38 @@ function registerClient() {
 		}
 
 		// ── §7 宿主路由：外壳补丁的开关与状态 ─────────────────────────────────
+		const FETCH_TIMEOUT_MS = 30000;
+
+		/**
+		 * 带超时的 JSON 请求。宿主那边只要没回包（进程被占、请求被吞），
+		 * 按钮就会一直转；有超时至少能把错误摆出来、把按钮解开。
+		 * @param {string} url - 地址。
+		 * @param {object} [options] - fetch 选项。
+		 * @param {number} [timeoutMs] - 超时毫秒。
+		 * @returns {Promise<object>} 宿主返回的 JSON，失败也给一个带 error 的对象。
+		 */
+		async function requestJson(url, options, timeoutMs) {
+			const controller = typeof AbortController === "function" ? new AbortController() : null;
+			const limit = timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs;
+			const timer = controller === null ? null : setTimeout(() => controller.abort(), limit);
+			try {
+				const response = await fetch(url, Object.assign({}, options, controller === null ? {} : { signal: controller.signal }));
+				let body = null;
+				try {
+					body = await response.json();
+				} catch {
+					body = null;
+				}
+				if (body === null) return { ok: false, error: "HTTP " + response.status };
+				return body;
+			} catch (error) {
+				const aborted = error !== null && typeof error === "object" && error.name === "AbortError";
+				return { ok: false, error: aborted ? "宿主 " + String(Math.round(limit / 1000)) + " 秒没有回包" : String((error && error.message) || error) };
+			} finally {
+				if (timer !== null) clearTimeout(timer);
+			}
+		}
+
 		/**
 		 * 打宿主路由。
 		 * @param {"enable" | "disable" | undefined} action - 省略即读状态。
@@ -1046,20 +1080,12 @@ function registerClient() {
 		 */
 		async function shellFetch(action) {
 			const url = action === undefined ? SHELL_ROUTE : SHELL_ROUTE + "?action=" + encodeURIComponent(action);
-			const response = await fetch(url, {
+			return requestJson(url, {
 				method: action === undefined ? "GET" : "POST",
 				headers: { "content-type": "application/json" },
 				credentials: "same-origin",
 				body: action === undefined ? undefined : JSON.stringify({ action }),
 			});
-			let body = null;
-			try {
-				body = await response.json();
-			} catch {
-				body = null;
-			}
-			if (body === null) return { ok: false, error: "HTTP " + response.status };
-			return body;
 		}
 
 		// ── §7B 侧边栏标签页菜单增强 ───────────────────────────────────────────
@@ -1554,11 +1580,15 @@ function registerClient() {
 			const shellFound = shell !== null && shell.found === true;
 			// asar 版改的是磁盘上的覆盖层，当前进程早把 main.js 读进内存了，得重启才看得见。
 			const shellPending = shell !== null && shell.needsRestart === true && shell.override === true;
+			// 条目说 unpacked 但覆盖文件不在：这种残局会让应用起不来，状态行直接点出来。
+			const shellBroken = shell !== null && shell.broken === true;
 			const shellState = shell === null
 				? ""
 				: shellFound
-					? (shellPatched ? t("shellStateOn") + " · " + String(shell.file ?? "") : t("shellStateOff") + " · " + String(shell.file ?? ""))
-						+ (shellPending ? " · " + t("shellStateRestart") : "")
+					? shellBroken
+						? t("shellStateBroken") + " · " + String(shell.file ?? "")
+						: (shellPatched ? t("shellStateOn") + " · " + String(shell.file ?? "") : t("shellStateOff") + " · " + String(shell.file ?? ""))
+							+ (shellPending ? " · " + t("shellStateRestart") : "")
 					: t("shellStateMissing");
 
 			const rows = [
@@ -1819,7 +1849,7 @@ function registerClient() {
 
 			const buttons = [
 				boxAction(t("shellApply"), "enable", !shellFound || bulkDisabled(busy)),
-				boxAction(t("shellRollback"), "disable", !shellPatched || bulkDisabled(busy)),
+				boxAction(t("shellRollback"), "disable", !(shellPatched || shellBroken) || bulkDisabled(busy)),
 				OfficialButton !== null
 					? React.createElement(OfficialButton, { key: "reload", onClick: () => { window.location.reload(); } }, t("refreshAction"))
 					: React.createElement("button", { key: "reload", type: "button", className: "dshmh-btn", onClick: () => { window.location.reload(); } }, t("refreshAction")),

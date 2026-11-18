@@ -9,6 +9,7 @@ import {
   clearOverride,
   fileIntegrity,
   hasAsarEntry,
+  isBrokenOverride,
   isOverridden,
   overridePath,
   readEffectiveText,
@@ -53,21 +54,30 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'menuhidden-asar-'))
 const archive = path.join(sandbox, 'app.asar')
 
 /**
- * 按 Electron 的字段顺序造归档：16 字节 pickle 头 + 头 JSON + 数据区。
+ * 按 Electron 的字段顺序造归档：16 字节 pickle 头 + 头 JSON + 4 字节对齐填充 + 数据区。
+ *
+ * 填充这一步是真实格式的一部分（真实 app.asar 的头部 5,671,389 字节，补到 5,671,392 才是数据区）。
+ * 少了它，读出来的正文整体偏移，测试也测不出这个坑，所以这里照真实格式补。
  * @param {string} body - `lib/main.js` 的正文。
  * @returns {Buffer} 归档字节。
  */
 function buildArchive(body) {
   const packed = Buffer.from(body, 'utf8')
   const header = { files: { lib: { files: { 'main.js': { size: packed.length, offset: '0', integrity: fileIntegrity(packed) } } } } }
-  const json = JSON.stringify(header)
+  let json = JSON.stringify(header)
+  // 故意让头部长度不是 4 的倍数，逼出对齐填充，否则这条坑测不到。
+  for (let index = 0; Buffer.byteLength(json, 'utf8') % 4 === 0 && index < 4; index += 1) {
+    header[`_pad${index}`] = index
+    json = JSON.stringify(header)
+  }
   const jsonLength = Buffer.byteLength(json, 'utf8')
+  const aligned = (jsonLength + 3) & ~3
   const prologue = Buffer.alloc(16)
   prologue.writeUInt32LE(4, 0)
-  prologue.writeUInt32LE(jsonLength + 11, 4)
-  prologue.writeUInt32LE(jsonLength + 7, 8)
+  prologue.writeUInt32LE(aligned + 8, 4)
+  prologue.writeUInt32LE(aligned + 4, 8)
   prologue.writeUInt32LE(jsonLength, 12)
-  return Buffer.concat([prologue, Buffer.from(json, 'utf8'), packed])
+  return Buffer.concat([prologue, Buffer.from(json, 'utf8'), Buffer.alloc(aligned - jsonLength), packed])
 }
 
 const pristine = buildArchive(original)
@@ -94,8 +104,12 @@ function readArchive() {
  */
 function parseHeader(buf) {
   const jsonLength = buf.readUInt32LE(12)
-  return { header: JSON.parse(buf.subarray(16, 16 + jsonLength).toString('utf8')), jsonLength, dataStart: 16 + jsonLength }
+  const aligned = (jsonLength + 3) & ~3
+  return { header: JSON.parse(buf.subarray(16, 16 + jsonLength).toString('utf8')), jsonLength, aligned, dataStart: 16 + aligned }
 }
+
+// 头部长度不是 4 的倍数才有填充，这个断言保证下面确实测到了填充那 3 个字节。
+check('头部需要 4 字节对齐填充', parseHeader(readArchive()).aligned > parseHeader(readArchive()).jsonLength, true)
 
 check('归档里有条目', hasAsarEntry(archive, 'lib/main.js'), true)
 check('归档里没乱写的条目', hasAsarEntry(archive, 'lib/nope.js'), false)
@@ -132,6 +146,16 @@ const restored = parseHeader(readArchive())
 check('integrity 被重算回来', restored.header.files.lib.files['main.js'].integrity.hash, fileIntegrity(Buffer.from(original, 'utf8')).hash)
 check('unpacked 标记被移除', restored.header.files.lib.files['main.js'].unpacked, undefined)
 check('还原后整个归档逐字节一致', readArchive().equals(pristine), true)
+check('干净状态下不算半改', isBrokenOverride(archive, 'lib/main.js'), false)
+
+// ---- 4B) 半改残局（条目 unpacked、覆盖文件被删）能被认出来，并且一次还原就修好 ----
+writeOverride(archive, 'lib/main.js', patchedText)
+fs.rmSync(overridePath(archive, 'lib/main.js'), { force: true })
+check('残局被认出来', isBrokenOverride(archive, 'lib/main.js'), true)
+check('残局下不算已覆盖', isOverridden(archive, 'lib/main.js'), false)
+clearOverride(archive, 'lib/main.js')
+check('修好后不再算半改', isBrokenOverride(archive, 'lib/main.js'), false)
+check('修好后归档逐字节回到原样', readArchive().equals(pristine), true)
 
 // ---- 5) CLI 直接对着归档内路径跑 apply / revert ----
 const run = (...args) => execFileSync(process.execPath, [cliPath, ...args], { encoding: 'utf8' })

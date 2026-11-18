@@ -22,7 +22,7 @@ import { existsSync, readFileSync, statSync, watch } from 'node:fs'
 import { LEVELS, applyReasoning, auditLevels, configFiles as configFilesForWatch, readState as readReasoningState, readStatus } from './reasoning.js'
 import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { clearOverride, isOverridden, readEffectiveText, splitAsarPath, writeOverride } from './shell/asar-patch.mjs'
+import { clearOverride, isBrokenOverride, isOverridden, readEffectiveText, splitAsarPath, writeOverride } from './shell/asar-patch.mjs'
 
 /** 路由挂在 Host 的 webServer 服务上；Cordis 里不声明就拿不到 ctx.webServer。 */
 export const inject = ['webServer']
@@ -194,18 +194,20 @@ function looksLikeShellMain(file) {
  */
 function shellState() {
   const { tried, file } = resolveShellMain()
-  if (file === null) return { found: false, file: null, patched: false, original: false, tried, asar: false, override: false, needsRestart: false }
+  if (file === null) return { found: false, file: null, patched: false, original: false, tried, asar: false, override: false, broken: false, needsRestart: false }
   const split = splitAsarPath(file)
   let text
   try {
     text = readShellText(file)
   } catch (error) {
     // 更新过程里文件会被独占，读不到就当「没打补丁」，别把整条状态路由带成 500。
-    return { found: true, file, patched: false, mode: null, original: false, tried, asar: split !== null, override: false, needsRestart: false, error: `读取失败：${describe(error)}` }
+    return { found: true, file, patched: false, mode: null, original: false, tried, asar: split !== null, override: false, broken: false, needsRestart: false, error: `读取失败：${describe(error)}` }
   }
   const selfCheck = text.includes(MARK_PATCHED)
   const legacy = text.includes(MARK_PATCHED_LEGACY)
   const override = split === null ? false : isOverridden(split.archive, split.entry)
+  // 「条目说 unpacked、覆盖文件却不在」只有这种组合会让 Electron 起不来，必须能被看出来。
+  const broken = split === null ? false : isBrokenOverride(split.archive, split.entry)
   return {
     found: true,
     file,
@@ -215,6 +217,7 @@ function shellState() {
     tried,
     asar: split !== null,
     override,
+    broken,
     needsRestart: split !== null,
   }
 }
@@ -560,9 +563,15 @@ export function apply(ctx, config = {}) {
       send(400, { ok: false, error: `未知操作：${action}` })
       return
     }
-    const result = await setShellPatch(action === 'enable')
-    info(`shell menu patch ${action}: ok=${String(result.ok)} file=${String(result.file)}`)
-    send(200, result)
+    try {
+      const result = await setShellPatch(action === 'enable')
+      info(`shell menu patch ${action}: ok=${String(result.ok)} file=${String(result.file)}`)
+      send(200, result)
+    } catch (error) {
+      // 任何没被兜住的异常都要变成结构化回包：让前端拿到错误、把按钮解开，
+      // 而不是等一个永远不来的响应。
+      send(500, { ok: false, error: `写入外壳补丁时出错：${describe(error)}` })
+    }
   }
 
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: ROUTE, handler }), 'dsh-menu-hidden: shell menu route')

@@ -23,7 +23,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { copyFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { clearOverride, hasAsarEntry, isOverridden, readEffectiveText, splitAsarPath, writeOverride } from './asar-patch.mjs'
+import { clearOverride, hasAsarEntry, isBrokenOverride, isOverridden, readEffectiveText, splitAsarPath, writeOverride } from './asar-patch.mjs'
 
 const MARK_ORIGINAL = '...development ? ['
 /** 0.2.28 起写入的样子：条件里嵌了「插件还在不在」的运行时自检，卸载后自动失活。 */
@@ -77,15 +77,30 @@ function readShellText(file) {
 function guessFile() {
   const explicit = argValue('--file')
   if (explicit !== undefined) return resolve(explicit)
+
   const installs = [
+    // 显式指定安装目录（绿色版 / 装在 D 盘时用得上）。
+    process.env.DSH_APP_DIR,
     process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'),
     process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness'),
   ].filter((root) => typeof root === 'string' && root !== '')
+
   const candidates = [process.env.DSH_SHELL_MAIN_JS]
   for (const root of installs) {
     candidates.push(join(root, 'resources', 'app', 'lib', 'main.js'))
     candidates.push(join(root, 'resources', 'app.asar', 'lib', 'main.js'))
   }
+
+  // 装在非系统盘（例如 D:\DeepSeekApp）时上面几条都猜不到，扫一下各盘根目录下的常见安装名。
+  for (const drive of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {
+    for (const folder of ['DeepSeekApp', 'DeepSeek Harness']) {
+      const root = `${drive}:\\${folder}`
+      if (!existsSync(root)) continue
+      candidates.push(join(root, 'resources', 'app.asar', 'lib', 'main.js'))
+      candidates.push(join(root, 'resources', 'app', 'lib', 'main.js'))
+    }
+  }
+
   candidates.push(join(process.cwd(), '..', 'lib', 'main.js'))
   for (const candidate of candidates) {
     if (typeof candidate !== 'string' || candidate === '') continue
@@ -133,6 +148,8 @@ const report = {
   backup: asar ? null : file + BACKUP_SUFFIX,
   backupExists: asar ? false : existsSync(file + BACKUP_SUFFIX),
   override: asar ? isOverridden(split.archive, split.entry) : false,
+  // 残局：条目 unpacked 但覆盖文件不在 —— 只有这种组合会让应用起不来，--revert 能修。
+  broken: asar ? isBrokenOverride(split.archive, split.entry) : false,
   needsRestart: asar,
 }
 
@@ -159,12 +176,12 @@ if (has('--apply') || has('--revert')) {
     console.error(JSON.stringify({ ...report, ok: false, error: `定位失败：原样标记命中 ${originalHits} 处（期望 1 处）` }, null, 2))
     process.exit(3)
   }
-  if (!enable && patchedHits === 0 && legacyHits === 0 && !report.override) {
-    // 归档正文是官方原样、也没有可卸的覆盖层 —— 本来就没打补丁，revert 当成功。
+  if (!enable && patchedHits === 0 && legacyHits === 0 && !report.override && !report.broken) {
+    // 归档正文是官方原样、也没有可卸的覆盖层、更没有半改残局 —— 本来就没打补丁，revert 当成功。
     console.log(JSON.stringify({ ...report, ok: true, changed: false, reason: 'already-clean' }, null, 2))
     process.exit(0)
   }
-  if (!enable && patchedHits !== 1 && legacyHits !== 1 && !report.override) {
+  if (!enable && patchedHits !== 1 && legacyHits !== 1 && !report.override && !report.broken) {
     console.error(JSON.stringify({ ...report, ok: false, error: `定位失败：补丁标记命中 ${patchedHits} + ${legacyHits} 处（期望其中一版 1 处）` }, null, 2))
     process.exit(3)
   }

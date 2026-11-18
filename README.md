@@ -173,7 +173,7 @@ reasoning.js             推理等级读写 cordis.patch.yml
 cordis.patch.yml         宿主半挂载行
 locale/{zh,en}.json      文案 + 列表标题
 shell/patch-shell-menu.mjs   外壳菜单补丁 CLI（--status / --apply / --revert / --dry-run）
-shell/asar-patch.mjs     asar 覆盖层读写（unpacked 开关 + 头部等长补空格 + integrity 重算）
+shell/asar-patch.mjs     asar 覆盖层读写（unpacked 开关 + 头部按 4 字节对齐补空格 + integrity 重算 + 半改残局识别）
 tools/install-local.mjs  本地覆盖安装 + 落盘前体检
 test/*.mjs               回归测试（node test/client-dom.mjs 等，共 13 个）
 manifest: market/index.json  插件市集条目
@@ -216,8 +216,18 @@ node test/shell-asar.mjs
 
 **0.2.2 起为什么改成写覆盖层**：桌面版打成了 `resources/app.asar`（单文件、199MB），`resources/runtime` 变成空目录，外壳入口挪进 `app.asar/lib/main.js`。asar 里每个文件都带 per-file integrity（SHA256 + 4MB 分块），Electron 每次读都校验，hash 不对直接 `ASAR Integrity Violation` + `exit(1)`；而 `JSON.parse` 往返后头部 JSON 长度不变，所以「等长替换 + 重算哈希」也能做，但 18 字节的预算塞不下自检表达式，只能写恒真，卸载后不会自愈。最终方案是 Electron 原生的 unpacked 机制：删掉该条目的 `integrity`、加 `"unpacked": true`（省下的 200 字节刚好，头部用空格补到原长），正文写进 `app.asar.unpacked/lib/main.js` —— 长度任意、内容任意、不校验哈希，归档数据区一个字节都不用动。
 
+还有一个容易踩的坑：头部 JSON 后面要补到 4 字节边界，数据区才是从 `16 + align4(jsonLength)` 开始（真实归档的头部 JSON 是 5,671,389 字节，补 3 个字节到 5,671,392）。少算这几个字节，读 `lib/main.js` 会整体偏移 3 字节——正文头部变成 `}`、尾部断在 `export {`，写进覆盖层就是一段坏代码，重启直接崩。`readHeader()` 里那行 `align4()` 就是为此存在的，`test/shell-asar.mjs` 造的归档也按真实格式补了填充，专门盯这个。
+
 ## 更新记录
 
+- **0.2.35**：修 asar 头部对齐导致的「写完补丁后应用起不来」。
+  - **根因**：asar 的头部 JSON 会补齐到 4 字节边界，数据区起点是 `16 + align4(jsonLength)`，不是 `16 + jsonLength`。0.2.34 少算了这 3 字节，读 `lib/main.js` 整体偏移 3 字节，写出来的覆盖层是错位内容——重启就崩。现在 `readHeader()` 按 `align4` 算，与 Electron 自己读出来的字节逐字节一致。
+  - `writeOverride()` 调换顺序：先写覆盖文件、最后才改头部；头部写失败就把覆盖文件删掉，归档保持「没有覆盖层」的完整状态。改之前一旦中途中断会留下「条目说 unpacked、文件却不在」，那是唯一会让应用起不来的组合。
+  - 头部写入改成 `writeExact()` 循环写满（Windows 上 `writeSync` 一次可能只写一部分），写完立刻回读、逐字节比对、再 `JSON.parse` 校验，不一致直接抛错。
+  - 新增 `isBrokenOverride()`：能认出上面那种半改残局；设置页状态行会显示「覆盖层不完整，点「还原」就能修好」，还原按钮不再灰掉。CLI 的 `--revert` 也会照样把它收拾干净。
+  - 设置页所有请求加 30 秒超时 + `AbortController`，宿主没回包时按钮会自己解开并报错，不再无限转圈；宿主侧路由也统一兜 try/catch，异常一律变成结构化 JSON 回包。
+  - `shell/patch-shell-menu.mjs` 在 `LOCALAPPDATA` / `Program Files` 之外，再扫各盘根目录的 `DeepSeekApp`、`DeepSeek Harness`，装在 D 盘也能自动认出；新增 `外壳菜单-写入.cmd` / `外壳菜单-还原.cmd`，应用起不来时可以脱离应用直接修。
+  - `test/shell-asar.mjs` 造的迷你归档改成按 4 字节对齐（并断言确实有填充），补了半改残局的用例。
 - **0.2.34**：适配 DSH 0.2.2-rc.5（桌面版打成 `resources/app.asar`）。
   - 外壳补丁改走 asar 覆盖层：把 `lib/main.js` 标成 `unpacked`、正文写进 `app.asar.unpacked/lib/main.js`，归档数据区一字节不动，还原逐字节回官方原样；不再需要「等长替换 + 重算 integrity」，自检表达式照旧写满。asar 版要重启应用才生效（Electron 进程内缓存 asar 头部），设置页会显示「需要重启」。
   - `resolveShellMain()` 认 `resources/app.asar/lib/main.js`，`resolveCli()` 认 asar 里的 `@deepseek-ai/dsh/lib/bin.js`（`ELECTRON_RUN_AS_NODE=1` 跑），检查更新又能用了；旧布局（`resources/runtime/cli/bin/dsh.cmd`）仍兼容。
