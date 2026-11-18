@@ -144,7 +144,7 @@ const pr = await api(`/repos/${UPSTREAM}/pulls`, {
       'Install:',
       '',
       '```bash',
-      'dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.2.30',
+      'dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden#v0.2.35',
       '```',
     ].join('\n'),
   }),

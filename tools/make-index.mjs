@@ -103,9 +103,12 @@ if (validator === undefined) {
   console.error('没找到 @deepseek-ai/dsh-plugin-market-index，本次跳过 DSH 自带校验（索引仍会写出）')
 }
 
-const parsed = validator.parseMarketIndex(index, 'https://example.invalid/market/index.json')
+// 校验器缺席时退化成「用自己这份索引」，不然脚本会在下面的 parseMarketIndex 上直接抛错、什么都写不出来。
+const parsed = validator === undefined ? index : validator.parseMarketIndex(index, 'https://example.invalid/market/index.json')
 const plugin = parsed.plugins[0]
-const target = validator.marketInstallTarget(plugin.name, plugin.versions[0])
+const target = validator === undefined
+  ? `github:${repoTarget.replace(/^https:\/\/github\.com\//, '')}#${plugin.versions[0].source.commit}`
+  : validator.marketInstallTarget(plugin.name, plugin.versions[0])
 console.log(
   JSON.stringify(
     {
