@@ -81,11 +81,11 @@
       "versions": [
         {
           "version": "0.2.35",
-          "publishTimestamp": 1795016131,
+          "publishTimestamp": 1795016421,
           "source": {
             "type": "git",
             "url": "https://github.com/Biu-Bong/dsh-menu-hidden",
-            "commit": "e64ac73698c00f83fbd338b1fee77da0251198e9"
+            "commit": "552cab84c709358a945b4c28228707f5c24575db"
           },
           "engines": {
             "dsh": ">=0.2.0-rc.1"
