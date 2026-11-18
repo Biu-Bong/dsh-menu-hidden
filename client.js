@@ -388,7 +388,8 @@ function registerClient() {
 		const SIDEBAR_ROW_SELECTOR = 'button[class*="_panelRow"]';
 		// 面板标题走 i18n，行上只有 aria-label：八种语言都列上，切语言也不会漏。
 		const SIDEBAR_PLUGINS_LABELS = ["插件", "Plugins", "プラグイン", "Complementos", "Плагины", "Plug-ins"];
-		// 0.2.2 起「定时任务」改名「自动化任务」（schedule.manager 字典 panel/title），旧名保留兼容老版本。
+		// 面板名取决于装的是哪个插件：第三方自动化插件那块叫「定时任务」（Scheduled tasks），
+		// DSH 自带面板（schedule.manager 字典的 panel/title）叫「自动化任务」（Automation tasks），两套都列上。
 		const SIDEBAR_SCHEDULES_LABELS = [
 			"自动化任务", "Automation tasks", "自動化タスク", "Tareas de automatización",
 			"Tâches d'automatisation", "Automatisierungsaufgaben", "Задачи автоматизации", "Tarefas de automação",

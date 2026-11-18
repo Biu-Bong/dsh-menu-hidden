@@ -71,7 +71,7 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 | 模型选择框 | 「DeepSeek 账号」「DeepSeek」官方 API 两个分组，整组收起 | 2 |
 | 子智能体 | 模型列表里对应的两组供应商 | 2 |
 | 设置 · 模型 | 两行重复的 provider 选项卡（编辑 / 删除一起走） | 2 |
-| 侧边栏 | Logo / 新会话 / 插件 / 定时任务（0.2.2 起叫「自动化任务」）/ 更多 | 5 |
+| 侧边栏 | Logo / 新会话 / 插件 / 定时任务 / 更多 | 5 |
 | 账号菜单 | 设置 / 意见反馈 / 退出登录 | 3 |
 
 隐藏只给节点加一条 `style="display:none!important"` 并打上 `data-dshmh-hidden`（值记着原来的整个 `style`），不删节点、不动 React props。关掉开关就把 `style` 原样还回去，所以随时可逆，也不会影响任何功能。
@@ -210,7 +210,7 @@ node test/shell-asar.mjs
 | 已登录徽标 | `[class*="_accountStatus"]` | 同上 |
 | 账号菜单项 | `[role="menuitem"]` + 文字 | 官方菜单没有 data 属性，只能按文字 |
 | 定时任务模型下拉框 | `[role="menu"][class~="dsh-st-form-menu"]` + 标题行 `div[role="presentation"]` | 插件自己传的 listClassName，结构变了会失效 |
-| 侧边栏面板行 | `button[class*="_panelRow"]` + `aria-label` 文字（插件 / 自动化任务 / 更多） | 文案改名就得跟着改，0.2.2 起「定时任务」→「自动化任务」 |
+| 侧边栏面板行 | `button[class*="_panelRow"]` + `aria-label` 文字（插件 / 定时任务 / 自动化任务 / 更多） | 面板名字取决于装的是哪个插件：第三方自动化插件叫「定时任务」，DSH 自带面板 0.2.2 起叫「自动化任务」，两种都认 |
 
 **外壳补丁为什么必须动 `main.js`**：那两项官方本来就写好了，只是被 `development` 这个门挡着（打包版恒为 `false`）；Windows 的应用菜单是点开时现拼的原生菜单，浏览器端碰不到，只能在主进程那边把门打开。0.2.28 起门后面是「插件还在不在」的运行时自检（扫 `$DSH_HOME/profiles/*/node_modules/dsh-menu-hidden/package.json`，跳过 `_` 开头的探查 profile），所以卸载之后它会自己关上。
 
@@ -231,7 +231,7 @@ node test/shell-asar.mjs
 - **0.2.34**：适配 DSH 0.2.2-rc.5（桌面版打成 `resources/app.asar`）。
   - 外壳补丁改走 asar 覆盖层：把 `lib/main.js` 标成 `unpacked`、正文写进 `app.asar.unpacked/lib/main.js`，归档数据区一字节不动，还原逐字节回官方原样；不再需要「等长替换 + 重算 integrity」，自检表达式照旧写满。asar 版要重启应用才生效（Electron 进程内缓存 asar 头部），设置页会显示「需要重启」。
   - `resolveShellMain()` 认 `resources/app.asar/lib/main.js`，`resolveCli()` 认 asar 里的 `@deepseek-ai/dsh/lib/bin.js`（`ELECTRON_RUN_AS_NODE=1` 跑），检查更新又能用了；旧布局（`resources/runtime/cli/bin/dsh.cmd`）仍兼容。
-  - 侧边栏「定时任务」在新版改名「自动化任务」，八种语言的 `panel` 文案都补上；「插件」「更多」也补齐其余语言。
+  - 侧边栏面板行补认 DSH 自带面板的新文案「自动化任务」（第三方自动化插件那块仍叫「定时任务」），八种语言都补上；「插件」「更多」也补齐其余语言。
   - 新增 `shell/asar-patch.mjs` 与 `test/shell-asar.mjs`（造迷你归档，验 apply / revert / 数据区不动 / 头部等长）。
 - **0.2.33**：上一版那两个开关从单列的「定时任务」一组挪进「模型选择框」组，紧跟「隐藏「DeepSeek官方 API」分组」后面，所有分组隐藏项一屏看完；`groupAutomation` 文案删掉、行为与默认值（开）不变。
 - **0.2.32**：菜单隐藏里新增两个开关（0.2.33 起并进「模型选择框」组）：「隐藏定时任务里的「DeepSeek 账号」分组」「隐藏定时任务里的「DeepSeek官方 API」分组」。第三方定时任务插件的模型下拉框不是模型选择器那套 `section[data-menu-group]`，而是 primitives 的 `Menu`：分组标题是 `div[role="presentation"]`，选项是它后面的兄弟节点，菜单壳靠插件传入的 `listClassName` 认（`dsh-st-form-menu`）。所以按「标题行 + 后续兄弟」成块藏，标题掉了模型一起掉，第三方供应商分组原样保留；菜单是 portal 到 body 的，观察器照样抓得住，打开时不闪。
