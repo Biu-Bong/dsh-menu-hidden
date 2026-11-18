@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)))
-const COPY = ['package.json', 'index.js', 'client.js', 'reasoning.js', 'cordis.patch.yml', 'icon.svg', 'locale', 'README.md', 'LICENSE']
+const COPY = ['package.json', 'index.js', 'client.js', 'reasoning.js', 'cordis.patch.yml', 'icon.svg', 'locale', 'shell', 'README.md', 'LICENSE']
 const PKG_NAME = 'dsh-menu-hidden'
 const DEV_ID = '@local/dsh-menu-hidden'
 
@@ -118,6 +118,16 @@ function inspect(dir, { expect = PKG_NAME } = {}) {
   const icon = typeof pkg.icon === 'string' ? path.join(dir, pkg.icon) : null
   if (icon !== null && !fs.existsSync(icon)) fail(`清单写着 icon ${pkg.icon}，但文件不存在`)
   if (typeof pkg.icon !== 'string') notes.push('清单没写 icon，插件列表会用默认占位图')
+
+  // index.js 会 import ./shell/asar-patch.mjs，目录漏带就是「整个宿主条目 import failed」。
+  const indexPath = path.join(dir, 'index.js')
+  if (fs.existsSync(indexPath)) {
+    const indexText = fs.readFileSync(indexPath, 'utf8')
+    for (const [, rel] of indexText.matchAll(/from\s+'(\.[^']+)'/g)) {
+      const target = path.join(dir, rel)
+      if (!fs.existsSync(target)) fail(`index.js 引用了 ${rel}，但 ${path.basename(target)} 不在落盘目录里`)
+    }
+  }
 
   const localeDir = path.join(dir, 'locale')
   for (const lang of ['zh', 'en']) {
