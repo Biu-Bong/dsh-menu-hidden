@@ -13,6 +13,8 @@ const html = `<!doctype html><html><body>
 <nav class="n1_nav" aria-label="全局面板" id="sideNav">
   <button type="button" class="n1_panelRow" id="navPlugins" aria-label="插件"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">插件</span></button>
   <button type="button" class="n1_panelRow" id="navSchedules" aria-label="定时任务"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">定时任务</span></button>
+  <button type="button" class="n1_panelRow" id="navSchedulesNew" aria-label="自动化任务"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">自动化任务</span></button>
+  <button type="button" class="n1_panelRow" id="navSchedulesEn" aria-label="Automation tasks"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">Automation tasks</span></button>
   <button type="button" class="n1_panelRow" id="navArchive" aria-label="归档会话"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">归档会话</span></button>
   <button type="button" class="n1_panelRow" id="navMore" aria-label="更多" aria-haspopup="menu"><span class="n1_panelGlyph"></span><span class="n1_panelTitle">更多</span></button>
 </nav>
@@ -93,6 +95,8 @@ const before = {
   subagentOpenai: hidden('sgOpenai'),
   navPlugins: hidden('navPlugins'),
   navSchedules: hidden('navSchedules'),
+  navSchedulesNew: hidden('navSchedulesNew'),
+  navSchedulesEn: hidden('navSchedulesEn'),
   navMore: hidden('navMore'),
   navArchive: hidden('navArchive'),
   navNewSession: hidden('navNewSession'),

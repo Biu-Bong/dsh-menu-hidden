@@ -4,7 +4,7 @@ DSH 插件。三件事，改完都在 **设置 → 懒人菜单** 里开关，�
 
 - **菜单隐藏** —— 模型选择框里重复的 DeepSeek 账号 / 官方 API 分组、设置里两行重复的选项卡、子智能体里的两组、侧边栏五项、账号菜单三项，14 个开关逐项管。
 - **模型配置** —— 新模型自动补齐推理等级、上下文窗口、图片支持；全局默认 + 按供应商覆盖；新供应商、新模型自动补字段。
-- **菜单增强** —— 应用菜单补上官方藏起来的「刷新页面」「重启应用与 Host」，写入前留备份，可一键还原。
+- **菜单增强** —— 应用菜单补上官方藏起来的「刷新页面」「重启应用与 Host」，写入前留备份，可一键还原（0.2.2 起改的是 asar 覆盖层，归档本身一个字节不动）。
 
 ## 安装
 
@@ -16,8 +16,10 @@ dsh plugin --profile desktop add github:Biu-Bong/dsh-menu-hidden
 
 装完**刷新一次页面**，「设置」里就多一页「懒人菜单」。想让应用菜单里出现「刷新页面」「重启应用与 Host」，再做两步：
 
-1. 设置 → 懒人菜单 → 菜单增强，点「写入补丁」（自动备份 `main.js`）；
+1. 设置 → 懒人菜单 → 菜单增强，点「写入补丁」（解包版自动备份 `main.js`；asar 版写 `app.asar.unpacked/lib/main.js` 覆盖层，不碰归档）；
 2. **重启一次应用**（应用菜单里还没有，就先退出再开）。
+
+> 0.2.2 起桌面版改成了 `resources/app.asar` 单文件，外壳入口在 `app.asar/lib/main.js`。补丁不再改归档正文，而是用 Electron 自带的 unpacked 机制：把该条目标成 `unpacked`，正文挪进 `app.asar.unpacked/lib/main.js`。归档的 199MB 数据区不动，还原就是删覆盖文件，读回来必然是官方原样。
 
 ## 卸载
 
@@ -26,7 +28,7 @@ dsh plugin --profile desktop remove dsh-menu-hidden
 ```
 
 - 0.2.28 起外壳补丁带运行时自检：插件卸掉，那两项菜单下次启动自动消失，不用手动还原。
-- 想立刻把 `main.js` 还原成官方原文（逐字节一致），在设置页点「还原」，或：
+- 想立刻还原成官方原样（解包版逐字节回到 `main.js`，asar 版删掉覆盖文件），在设置页点「还原」，或：
 
 ```bash
 node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
@@ -69,7 +71,7 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 | 模型选择框 | 「DeepSeek 账号」「DeepSeek」官方 API 两个分组，整组收起 | 2 |
 | 子智能体 | 模型列表里对应的两组供应商 | 2 |
 | 设置 · 模型 | 两行重复的 provider 选项卡（编辑 / 删除一起走） | 2 |
-| 侧边栏 | Logo / 新会话 / 插件 / 定时任务 / 更多 | 5 |
+| 侧边栏 | Logo / 新会话 / 插件 / 定时任务（0.2.2 起叫「自动化任务」）/ 更多 | 5 |
 | 账号菜单 | 设置 / 意见反馈 / 退出登录 | 3 |
 
 隐藏只给节点加一条 `style="display:none!important"` 并打上 `data-dshmh-hidden`（值记着原来的整个 `style`），不删节点、不动 React props。关掉开关就把 `style` 原样还回去，所以随时可逆，也不会影响任何功能。
@@ -87,7 +89,8 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 ### 三、菜单增强
 
 - 应用菜单「退出」上方加「刷新页面」「重启应用与 Host」。
-- 写入前自动备份成 `main.js.menuhidden.bak`，点「还原」逐字节回到官方原文。
+- 解包版（0.2.1 及以前）：写入前自动备份成 `main.js.menuhidden.bak`，点「还原」逐字节回到官方原文。
+- asar 版（0.2.2 起）：归档正文不动，改写 `app.asar.unpacked/lib/main.js` 覆盖层；「还原」= 删覆盖文件 + 条目改回 packed，读回来就是官方那份。改完要重启应用才生效。
 - 带运行时自检：插件在，菜单项在；插件卸了，下次启动自动消失。
 - 页头三颗胶囊：GitHub / 问题反馈 / 检查更新（已是最新时显示「✓ 已是最新」，有新版本变红点，点开是更新窗口）。
 
@@ -106,13 +109,13 @@ node node_modules/dsh-menu-hidden/shell/patch-shell-menu.mjs --revert
 不会。只加样式、不删节点，开关一关界面和没装过一样。
 
 **升级 DSH 之后菜单项没了？**
-应用更新会整份替换 `main.js`，补丁跟着消失，设置页那一行会显示「未改动」。点一下「写入补丁」再重启，不用重装插件。
+解包版：应用更新会整份替换 `main.js`，补丁跟着消失。asar 版：新版 asar 的条目里没有 `unpacked` 标记，覆盖层自动失效。两种情况设置页那一行都会显示「未改动」，点一下「写入补丁」再重启，不用重装插件。
 
 **要重启吗？**
-设置页里所有开关立刻生效；推理等级是热读的，写完下一条消息就带新档位；只有应用菜单那两项要重启一次才出现。
+设置页里所有开关立刻生效；推理等级是热读的，写完下一条消息就带新档位；只有应用菜单那两项要重启一次才出现（asar 版一定是这样：Electron 在进程内缓存了 asar 头部，改完必须重启）。
 
 **卸载干净吗？**
-卸载只删插件本体。0.2.28 起补丁带自检，下次启动菜单项自动消失；想立刻还原就跑 `--revert`。
+卸载只删插件本体。0.2.28 起补丁带自检，下次启动菜单项自动消失；想立刻还原就跑 `--revert`（asar 版会把覆盖文件一起删掉）。
 
 **支持哪些供应商？**
 按 provider id 认，OpenAI、Anthropic、Grok、Google 这类第三方供应商都在内，模型名不受限制 —— 新加什么模型，字段都按同一套逻辑补。
@@ -125,7 +128,8 @@ DSH 查字典用的是应用当前语言的原样小写标签（`zh-CN` → `zh-
 - **外壳补丁会被应用更新冲掉**：更新后点一次「写入补丁」即可，不需要重装。
 - **只认文字与结构，不认内部 id**：官方改了分组标题或 class 后缀，对应那一条会静默失效，其它条不受影响，设置页不会报错。
 - **同名供应商会被一起藏**：自己加了一个 displayName 正好叫 `DeepSeek` 的供应商，也会被「隐藏官方 API」一起藏掉。
-- **改的是本机文件**：推理等级写 `$DSH_HOME/profiles/*/cordis.patch.yml`，外壳补丁写安装目录里的 `main.js`；换机器、换用户目录都要重来一遍。
+- **改的是本机文件**：推理等级写 `$DSH_HOME/profiles/*/cordis.patch.yml`，外壳补丁写安装目录里的 `main.js`（asar 版写同目录下的 `app.asar.unpacked/lib/main.js`）；换机器、换用户目录都要重来一遍。
+- **asar 版要重启**：改的是磁盘上的覆盖层，当前进程早就把 `main.js` 读进内存了，重启后才生效。
 
 ## 排障
 
@@ -146,6 +150,14 @@ Get-ChildItem "$env:APPDATA/@deepseek-ai/dsh-desktop/logs" -Filter 'crash-*.log'
 **换过插件文件之后，一按「刷新页面」就白屏**
 Host 启动时扫一遍 `node_modules` 建好模块清单，之后一直拿着这份清单。运行期间替换了 `client.js`，刷新时前端按新包要模块、Host 手里还是旧清单，导入失败一次，而 `web boot` 是「有一项没激活就整体不启动」。**换完文件要重启应用，不要只按刷新页面** —— 重启后它自己就恢复正常。
 
+**重启后插件整个消失：设置里没有入口、隐藏全部失效，只剩应用菜单那一条还在**
+包清单的 `name` 和 `client.js` 的 loader id 对不上。`dsh-client-modules` 是拿 **package.json 的 `name`** 去建模块表的，`client.js` 里 `__ModuleLoader__.load({ id })` 必须等于这个名字。手工把开发副本抄进安装目录时，`plugin/package.json` 的 `name` 是 `@local/dsh-menu-hidden`，抄到 `node_modules/dsh-menu-hidden` 之后就成了「目录叫 dsh-menu-hidden、清单自称 @local/dsh-menu-hidden」，前端按模块表取不到工厂，客户端半整块不激活；外壳补丁是写进 app 的 `main.js` 的，所以那一项照旧能用，特别容易误判成「只有外壳活着」。修法：只从 `repo/` 装，不要手抄 `plugin/package.json`：
+
+```powershell
+node tools/install-local.mjs --check "$env:USERPROFILE/.dsh/profiles/desktop/node_modules/dsh-menu-hidden"
+node tools/install-local.mjs          # 体检不过就不会写盘
+```
+
 **日志里是 `duplicate factory registration`**
 `client.js` 注册的 id 和包名不一致：boot 按包名没找到，又拿单独 URL 拉一次同一份字节，第二次执行撞上重复注册。把 `client.js` 的 loader id 改成包名即可。
 
@@ -161,24 +173,31 @@ reasoning.js             推理等级读写 cordis.patch.yml
 cordis.patch.yml         宿主半挂载行
 locale/{zh,en}.json      文案 + 列表标题
 shell/patch-shell-menu.mjs   外壳菜单补丁 CLI（--status / --apply / --revert / --dry-run）
+shell/asar-patch.mjs     asar 覆盖层读写（unpacked 开关 + 头部等长补空格 + integrity 重算）
 tools/install-local.mjs  本地覆盖安装 + 落盘前体检
-test/*.mjs               回归测试（node test/client-dom.mjs 等，共 7 个）
+test/*.mjs               回归测试（node test/client-dom.mjs 等，共 13 个）
 manifest: market/index.json  插件市集条目
 ```
 
-- 测试（前五个要吃 `client.js` 路径，`test/client-links.mjs` 与 `test/shell-selfcheck.mjs` 直接跑）：
+- 测试（前十个要吃 `client.js` 路径，`test/client-links.mjs`、`test/shell-selfcheck.mjs`、`test/shell-asar.mjs` 直接跑）：
 
 ```bash
 node test/client-dom.mjs client.js
+node test/client-automation-menu.mjs client.js
+node test/client-automation-off.mjs client.js
+node test/client-automation-render.mjs client.js
 node test/client-degraded.mjs client.js
 node test/client-load.mjs client.js
 node test/client-subagent-off.mjs client.js
 node test/effort-xhigh.mjs client.js
 node test/locale.mjs client.js
+node test/tab-menu.mjs client.js
 node test/client-links.mjs
 node test/shell-selfcheck.mjs
+node test/shell-asar.mjs
 ```
 - 本地覆盖安装：`node tools/install-local.mjs`（先体检，不过就一个字节都不写）；`--dry-run` 只检查；`--check <目录>` 体检已装好的那份；`--from plugin` 从开发副本装并自动改包名。
+- 装完会自动「pin」：把 profile 的 `package.json` 依赖改成 `link:D:/DeepSeek/projects/DSH-MenuHidden/repo`，并把 `pnpm-lock.yaml` 里的远端 tarball 条目清掉（备份成 `*.bak-before-pin-<时间>`）。不 pin 的话，profile 里写的是 `github:Biu-Bong/dsh-menu-hidden`，任何一次 `pnpm install` 都会按锁文件把 GitHub 上的旧版拉回来、覆盖本地装的新版。想跳过这步用 `--no-pin`。
 - 插件列表里的图标来自 `package.json` 的 `icon`，标题和描述来自 `locale/*.json` 的 `meta.title` / `meta.description`；改完记得抬 `version`，否则字段清单缓存会继续用旧标题。
 
 **认节点的方式**（官方改结构时会失效的那几条）
@@ -190,11 +209,23 @@ node test/shell-selfcheck.mjs
 | 设置·模型 行名 | `[class*="_rowName"]`（取后缀，不认 hash） | 换版本不失效 |
 | 已登录徽标 | `[class*="_accountStatus"]` | 同上 |
 | 账号菜单项 | `[role="menuitem"]` + 文字 | 官方菜单没有 data 属性，只能按文字 |
+| 定时任务模型下拉框 | `[role="menu"][class~="dsh-st-form-menu"]` + 标题行 `div[role="presentation"]` | 插件自己传的 listClassName，结构变了会失效 |
+| 侧边栏面板行 | `button[class*="_panelRow"]` + `aria-label` 文字（插件 / 自动化任务 / 更多） | 文案改名就得跟着改，0.2.2 起「定时任务」→「自动化任务」 |
 
 **外壳补丁为什么必须动 `main.js`**：那两项官方本来就写好了，只是被 `development` 这个门挡着（打包版恒为 `false`）；Windows 的应用菜单是点开时现拼的原生菜单，浏览器端碰不到，只能在主进程那边把门打开。0.2.28 起门后面是「插件还在不在」的运行时自检（扫 `$DSH_HOME/profiles/*/node_modules/dsh-menu-hidden/package.json`，跳过 `_` 开头的探查 profile），所以卸载之后它会自己关上。
 
+**0.2.2 起为什么改成写覆盖层**：桌面版打成了 `resources/app.asar`（单文件、199MB），`resources/runtime` 变成空目录，外壳入口挪进 `app.asar/lib/main.js`。asar 里每个文件都带 per-file integrity（SHA256 + 4MB 分块），Electron 每次读都校验，hash 不对直接 `ASAR Integrity Violation` + `exit(1)`；而 `JSON.parse` 往返后头部 JSON 长度不变，所以「等长替换 + 重算哈希」也能做，但 18 字节的预算塞不下自检表达式，只能写恒真，卸载后不会自愈。最终方案是 Electron 原生的 unpacked 机制：删掉该条目的 `integrity`、加 `"unpacked": true`（省下的 200 字节刚好，头部用空格补到原长），正文写进 `app.asar.unpacked/lib/main.js` —— 长度任意、内容任意、不校验哈希，归档数据区一个字节都不用动。
+
 ## 更新记录
 
+- **0.2.34**：适配 DSH 0.2.2-rc.5（桌面版打成 `resources/app.asar`）。
+  - 外壳补丁改走 asar 覆盖层：把 `lib/main.js` 标成 `unpacked`、正文写进 `app.asar.unpacked/lib/main.js`，归档数据区一字节不动，还原逐字节回官方原样；不再需要「等长替换 + 重算 integrity」，自检表达式照旧写满。asar 版要重启应用才生效（Electron 进程内缓存 asar 头部），设置页会显示「需要重启」。
+  - `resolveShellMain()` 认 `resources/app.asar/lib/main.js`，`resolveCli()` 认 asar 里的 `@deepseek-ai/dsh/lib/bin.js`（`ELECTRON_RUN_AS_NODE=1` 跑），检查更新又能用了；旧布局（`resources/runtime/cli/bin/dsh.cmd`）仍兼容。
+  - 侧边栏「定时任务」在新版改名「自动化任务」，八种语言的 `panel` 文案都补上；「插件」「更多」也补齐其余语言。
+  - 新增 `shell/asar-patch.mjs` 与 `test/shell-asar.mjs`（造迷你归档，验 apply / revert / 数据区不动 / 头部等长）。
+- **0.2.33**：上一版那两个开关从单列的「定时任务」一组挪进「模型选择框」组，紧跟「隐藏「DeepSeek官方 API」分组」后面，所有分组隐藏项一屏看完；`groupAutomation` 文案删掉、行为与默认值（开）不变。
+- **0.2.32**：菜单隐藏里新增两个开关（0.2.33 起并进「模型选择框」组）：「隐藏定时任务里的「DeepSeek 账号」分组」「隐藏定时任务里的「DeepSeek官方 API」分组」。定时任务对话框（`@michengai/dsh-automation`）的模型下拉框不是模型选择器那套 `section[data-menu-group]`，而是 primitives 的 `Menu`：分组标题是 `div[role="presentation"]`，选项是它后面的兄弟节点，菜单壳靠插件传入的 `listClassName` 认（`dsh-st-form-menu`）。所以按「标题行 + 后续兄弟」成块藏，标题掉了模型一起掉，第三方分组（WorkBuddy / MX-* / mxgm / mxgpt …）原样保留；菜单是 portal 到 body 的，观察器照样抓得住，打开时不闪。
+- **0.2.31**：菜单增强里新增「侧边栏标签页菜单增强」。右栏标签页（dockkit）的右键菜单原本只有「关闭」一项，现在补齐 Chrome 那一套：关闭其他标签页 / 关闭左侧标签页 / 关闭右侧标签页 / 关闭全部标签页；没得关的项自动置灰（最左页的「关闭左侧」、只剩一页时的「关闭其他」、最右页的「关闭右侧」）。实现不碰别人的组件：等菜单渲染完，复制它自带的关闭项节点（样式完全一致），换文案换点击逻辑再挂回去；关页直接点那页自己的关闭钮，和手点是同一条路径。开关在「菜单增强」里，ⓘ 有说明。
 - **0.2.30**：思考深度彻底去掉 `xhigh`，菜单里剩 `Low` / `Medium` / `High` / `Max` 四档。设置页下拉框早就不带这一档，但聊天框那个思考深度菜单是按模型 `reasoningEfforts` 渲染的 —— 配置里声明了 `xhigh`，菜单里就还会多一项 `Xhigh`。现在两处一起处理：界面上把这一项藏掉，配置里那行也删掉（幂等，别的档位与注释不动）。
 - **0.2.29**：推理等级去掉 `xhigh`，档位收敛成 low / medium / high / max 四档（`off` 为关闭），下拉框里不再出现这一档；老配置里写过的 `xhigh` 会被当成「跟随全局」读回，不写盘也不删行。
 - **0.2.28**：外壳补丁自愈。写进 `main.js` 的条件从恒真改成运行时自检，卸载后菜单项下次启动自动消失，重装又自动出现；老版本写进去的恒真补丁仍能被识别、还原并顺手升级。CLI 写入改成临时文件 + rename 原子替换。

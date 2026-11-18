@@ -47,7 +47,7 @@ function registerClient() {
 		const REPO_URL = "https://github.com/Biu-Bong/dsh-menu-hidden";
 		const REPO_SLUG = "Biu-Bong/dsh-menu-hidden";
 		/** 内置版本号：页面一挂载就能显示，不等后端返回。发布时由 tools/sync-repo.mjs 改写。 */
-		const VERSION = "0.2.30";
+		const VERSION = "0.2.34";
 		const SETTINGS_SECTION_SLOT = "settings.section";
 
 		// ── §1 文案（跟随应用语言） ────────────────────────────────────────────
@@ -69,6 +69,10 @@ function registerClient() {
 				subagentOfficialHint: "同一个列表里的 DeepSeek 官方 API 那一组，连它的模型一起藏。",
 				officialGroupLabel: "隐藏「DeepSeek官方 API」分组",
 				officialGroupHint: "模型下拉框里官方 API 那一组。两组都关掉，下拉框会只剩第三方模型。",
+				scheduleAccountGroupLabel: "隐藏定时任务里的「DeepSeek 账号」分组",
+				scheduleAccountGroupHint: "「编辑定时任务」对话框里那个模型下拉框，账号那一组连它的模型一起藏。",
+				scheduleOfficialGroupLabel: "隐藏定时任务里的「DeepSeek官方 API」分组",
+				scheduleOfficialGroupHint: "同一个下拉框里官方 API 那一组。两组都关掉，定时任务就只剩第三方模型可选。",
 				accountRowLabel: "隐藏「DeepSeek 账号」选项卡",
 				accountRowHint: "设置 · 模型里账号那一条整行消失，右边的编辑 / 删除一起走 —— 不是只藏「已登录」三个字。",
 				officialRowLabel: "隐藏「DeepSeek官方 API」选项卡",
@@ -150,6 +154,7 @@ function registerClient() {
 				shellStateOn: "已写入",
 				shellStateOff: "未改动",
 				shellStateMissing: "没找到外壳 main.js",
+				shellStateRestart: "重启后生效",
 				shellApply: "写入补丁",
 				shellRollback: "还原",
 				shellWrote: "已写入。",
@@ -159,6 +164,14 @@ function registerClient() {
 				refreshLabel: "刷新页面",
 				refreshHint: "重新加载渲染进程，不重启 Host，正在跑的任务不受影响。",
 				refreshAction: "刷新页面",
+				groupTabMenu: "侧边栏标签页",
+				tabMenuLabel: "侧边栏标签页菜单增强",
+				tabMenuHint: "右键侧边栏标签页时，在菜单里补上「关闭其他标签页 / 关闭左侧标签页 / 关闭右侧标签页 / 关闭全部标签页」，和 Chrome 一致。没得关的项会置灰：比如最左边那页的「关闭左侧」、只剩一页时的「关闭其他」。",
+				tabMenuCloseOthers: "关闭其他标签页",
+				tabMenuCloseLeft: "关闭左侧标签页",
+				tabMenuCloseRight: "关闭右侧标签页",
+				tabMenuCloseAll: "关闭全部标签页",
+				groupShell: "应用外壳",
 			},
 			en: {
 				sectionLabel: "Lazy Menu",
@@ -177,6 +190,10 @@ function registerClient() {
 				subagentOfficialHint: "The same list\u2019s DeepSeek official API group, models included.",
 				officialGroupLabel: "Hide the \"DeepSeek official API\" group",
 				officialGroupHint: "The official API group in the model dropdown. Hiding both leaves only third-party models.",
+				scheduleAccountGroupLabel: "Hide the \"DeepSeek Account\" group in scheduled tasks",
+				scheduleAccountGroupHint: "The model dropdown inside Edit scheduled task. The account group and its models disappear together.",
+				scheduleOfficialGroupLabel: "Hide the \"DeepSeek Official API\" group in scheduled tasks",
+				scheduleOfficialGroupHint: "The official API group in the same dropdown. Hiding both leaves only third-party models for scheduled tasks.",
 				accountRowLabel: "Hide the \"DeepSeek Account\" tab",
 				accountRowHint: "The entire row disappears from the Models page, buttons included — not just the Signed in text.",
 				officialRowLabel: "Hide the \"DeepSeek official API\" tab",
@@ -258,6 +275,7 @@ function registerClient() {
 				shellStateOn: "Written",
 				shellStateOff: "Not applied",
 				shellStateMissing: "Shell main.js not found",
+				shellStateRestart: "applies after a restart",
 				shellApply: "Apply patch",
 				shellRollback: "Revert",
 				shellWrote: "Written.",
@@ -267,6 +285,14 @@ function registerClient() {
 				refreshLabel: "Reload page",
 				refreshHint: "Reloads the renderer without restarting the Host, so running tasks keep going.",
 				refreshAction: "Reload page",
+				groupTabMenu: "Sidebar tabs",
+				tabMenuLabel: "Sidebar tab menu",
+				tabMenuHint: "Right-clicking a sidebar tab gets Close other tabs / Close tabs to the left / Close tabs to the right / Close all tabs, the way Chrome does it. Items with nothing to close are dimmed: Close tabs to the left on the first tab, Close other tabs on the last remaining one.",
+				tabMenuCloseOthers: "Close other tabs",
+				tabMenuCloseLeft: "Close tabs to the left",
+				tabMenuCloseRight: "Close tabs to the right",
+				tabMenuCloseAll: "Close all tabs",
+				groupShell: "App shell",
 			},
 		};
 		/** apply() 里由 ctx.locale.bind() 换成真翻译函数；没绑上时原样返回键名。 */
@@ -283,11 +309,14 @@ function registerClient() {
 			sidebarLogo: true,
 			subagentAccount: true,
 			subagentOfficial: true,
+			scheduleAccountGroup: true,
+			scheduleOfficialGroup: true,
 			accountRow: true,
 			officialRow: true,
 			feedback: true,
 			signOut: true,
 			hideSettings: true,
+			tabMenu: true,
 		};
 		const prefs = { ...DEFAULTS };
 
@@ -334,6 +363,13 @@ function registerClient() {
 		/** 设置页 provider 行的类名后缀（Vite CSS Modules：_hash_rowName）。 */
 		const ROW_NAME_SELECTOR = '[class*="_rowName"]';
 		const MENU_GROUP_SELECTOR = "section[data-menu-group]";
+		/**
+		 * 定时任务对话框（@michengai/dsh-automation）的模型下拉框。
+		 * 它用 primitives 的 Menu（items 数组）而不是模型下拉框那套 section[data-menu-group]，
+		 * 唯一稳定的抓手是插件自己传进去的 listClassName：dsh-st-form-menu。
+		 * portal:true 会把这个菜单挂到 document.body 上，所以只能在 body 那棵树里找。
+		 */
+		const AUTOMATION_MENU_SELECTOR = '[role="menu"][class~="dsh-st-form-menu"]';
 		const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
 		const DEFAULT_LABELS = ["Default", "默认"];
 		/** 思考深度菜单里要藏掉的档位（只藏菜单项，不动模型列表、不动触发器）。 */
@@ -348,9 +384,15 @@ function registerClient() {
 		/** 子智能体列表每行的副标题：「DeepSeek · deepseek-official/deepseek-flash」，provider id 比显示名可靠。 */
 		/** 侧边栏那排面板图标：button[class*="_panelRow"]，名字在 aria-label 上（收起时只有它）。 */
 		const SIDEBAR_ROW_SELECTOR = 'button[class*="_panelRow"]';
-		const SIDEBAR_PLUGINS_LABELS = ["插件", "Plugins"];
-		const SIDEBAR_SCHEDULES_LABELS = ["定时任务", "Scheduled tasks", "Schedules"];
-		const SIDEBAR_MORE_LABELS = ["更多", "More"];
+		// 面板标题走 i18n，行上只有 aria-label：八种语言都列上，切语言也不会漏。
+		const SIDEBAR_PLUGINS_LABELS = ["插件", "Plugins", "プラグイン", "Complementos", "Плагины", "Plug-ins"];
+		// 0.2.2 起「定时任务」改名「自动化任务」（schedule.manager 字典 panel/title），旧名保留兼容老版本。
+		const SIDEBAR_SCHEDULES_LABELS = [
+			"自动化任务", "Automation tasks", "自動化タスク", "Tareas de automatización",
+			"Tâches d'automatisation", "Automatisierungsaufgaben", "Задачи автоматизации", "Tarefas de automação",
+			"定时任务", "Scheduled tasks", "Schedules",
+		];
+		const SIDEBAR_MORE_LABELS = ["更多", "More", "その他", "Más", "Plus", "Mehr", "Ещё", "Mais"];
 		/** 「新会话」大按钮：button._newSession，收起时变成标题栏里的小图标，同样认类名。 */
 		const SIDEBAR_NEW_SESSION_SELECTOR = 'button[class*="_newSession"]';
 		const SIDEBAR_BRAND_SELECTOR = '[class*="brandIdentity"]';
@@ -496,6 +538,48 @@ function registerClient() {
 					setHidden(section, false);
 				}
 			}
+		}
+
+		/**
+		 * 定时任务对话框里的模型下拉框：primitives Menu 的分组标题是 div[role="presentation"]，
+		 * 选项是它后面的兄弟节点（div > button[role="menuitem"]），一直跟到下一个标题行。
+		 * 所以按「标题行 + 后续兄弟」成块藏，标题掉了模型一起掉。
+		 * @param {Element} root - 扫描起点。
+		 */
+		function sweepAutomationMenu(root) {
+			const menus = root.matches(AUTOMATION_MENU_SELECTOR) ? [root, ...root.querySelectorAll(AUTOMATION_MENU_SELECTOR)] : [...root.querySelectorAll(AUTOMATION_MENU_SELECTOR)];
+			for (const menu of menus) {
+				for (const list of menu.querySelectorAll(':scope > div[role="presentation"]')) {
+					const children = [...list.children];
+					for (let index = 0; index < children.length; index += 1) {
+						const child = children[index];
+						if (!isMenuLabelRow(child)) continue;
+						const text = (child.textContent ?? "").trim();
+						let hide = false;
+						if (matches(ACCOUNT_GROUP_LABELS, text)) hide = prefs.scheduleAccountGroup === true;
+						else if (matches(OFFICIAL_GROUP_LABELS, text)) hide = prefs.scheduleOfficialGroup === true;
+						else continue;
+						setHidden(child, hide);
+						for (let next = index + 1; next < children.length; next += 1) {
+							if (isMenuLabelRow(children[next])) break;
+							setHidden(children[next], hide);
+						}
+					}
+				}
+			}
+		}
+
+		/**
+		 * primitives Menu 的分组标题行：role="presentation"、里面没有菜单项、但有文字。
+		 * 菜单容器自己的 viewport / footer 也是 role="presentation"，靠「有菜单项」这一条区分开。
+		 * @param {Element} element - 待判定节点。
+		 * @returns {boolean} 是标题行时为 true。
+		 */
+		function isMenuLabelRow(element) {
+			if (element === null || element === undefined || element.nodeType !== 1) return false;
+			if (element.getAttribute("role") !== "presentation") return false;
+			if (element.querySelector(MENU_ITEM_SELECTOR) !== null) return false;
+			return (element.textContent ?? "").trim() !== "";
 		}
 
 		/** 设置 · 模型：藏官方 API 整行，藏账号行的「已登录」。 */
@@ -683,7 +767,7 @@ function registerClient() {
 			if (root === null || root === undefined || root.nodeType !== 1) return;
 			// 三步各自上保险：换版本后某一处结构变了，只让那一条失效，不连累另外两条。
 
-			for (const step of [sweepModelMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav, sweepProviderDefault, sweepEffortLevels]) {
+			for (const step of [sweepModelMenu, sweepAutomationMenu, sweepSettingsRows, sweepSubagentModels, sweepAccountMenu, sweepSidebarNav, sweepProviderDefault, sweepEffortLevels]) {
 				try {
 					step(root);
 				} catch (error) {
@@ -728,6 +812,16 @@ function registerClient() {
 		 */
 		function worthHolding(surface) {
 			if (prefs.accountRow === true && surface.querySelector('[class*="_accountStatus"]') !== null) return true;
+			if (prefs.scheduleAccountGroup === true || prefs.scheduleOfficialGroup === true) {
+				if (surface.matches(AUTOMATION_MENU_SELECTOR) === true) {
+					for (const row of surface.querySelectorAll('div[role="presentation"]')) {
+						if (!isMenuLabelRow(row)) continue;
+						const text = (row.textContent ?? "").trim();
+						if (prefs.scheduleAccountGroup === true && matches(ACCOUNT_GROUP_LABELS, text)) return true;
+						if (prefs.scheduleOfficialGroup === true && matches(OFFICIAL_GROUP_LABELS, text)) return true;
+					}
+				}
+			}
 			if (prefs.feedback === true || prefs.signOut === true) {
 				for (const item of surface.querySelectorAll(MENU_ITEM_SELECTOR)) {
 					const text = (item.textContent ?? "").trim();
@@ -787,7 +881,7 @@ function registerClient() {
 					if (node === null || node === undefined || node.nodeType !== 1 || seen.has(node)) continue;
 					seen.add(node);
 					try {
-						if (prefs.feedback === true || prefs.accountGroup === true || prefs.officialGroup === true) holdMenu(node);
+						if (prefs.feedback === true || prefs.accountGroup === true || prefs.officialGroup === true || prefs.scheduleAccountGroup === true || prefs.scheduleOfficialGroup === true) holdMenu(node);
 						sweepRoot(node);
 					} catch (error) {
 						console.error("[dsh-menu-hidden] sweep failed", error);
@@ -914,6 +1008,8 @@ function registerClient() {
 			".dshmh-statusrow .dshmh-text{padding-right:0;flex:none}",
 			".dshmh-status{flex:1;min-width:0;margin:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;line-height:18px;min-height:18px}",
 			".dshmh-tabpanel{padding-top:2px}",
+			".dshmh-menuItem{display:flex;align-items:center;width:100%;box-sizing:border-box;margin:0;padding:5px 12px;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-primary,inherit);font:inherit;font-size:13px;line-height:20px;text-align:left;white-space:nowrap;cursor:pointer}",
+			".dshmh-menuItem:hover{background:var(--dsw-alias-bg-layer-3,rgba(127,127,127,.16))}",
 			".dshmh-select{appearance:none;min-width:132px;padding:6px 26px 6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:#202227;color:#e8eaed;font-size:13px;cursor:pointer}",
 			"html[data-dshmh-account-row=\"1\"] li[class*=\"_rowCard\"]:has([class*=\"_accountStatus\"]){display:none!important}",
 			"html[data-dshmh-logo=\"1\"] [class*=\"logoRow\"]{height:auto!important;min-height:0!important;padding-top:0!important;padding-bottom:0!important;margin-bottom:2px!important}",
@@ -964,6 +1060,201 @@ function registerClient() {
 			}
 			if (body === null) return { ok: false, error: "HTTP " + response.status };
 			return body;
+		}
+
+		// ── §7B 侧边栏标签页菜单增强 ───────────────────────────────────────────
+		/**
+		 * 右栏标签页（dockkit）的右键菜单天生只有「关闭」一项，这里补齐 Chrome 那一套：
+		 * 关闭其他 / 关闭左侧 / 关闭右侧 / 关闭全部。
+		 *
+		 * 不去碰别人的组件，走「菜单已经在 DOM 里了再往上补按钮」这条路：
+		 * 1. 捕获阶段的 contextmenu 先记现场：被点的是哪页、它在本标签条里的第几个；
+		 * 2. 菜单是 React portal 到 body 的 [data-dockkit-tab-menu]，等这一轮渲染落地后
+		 *    复制它自带的 [data-dockkit-menu-close]（字体/行高/圆角/内边距全一样），
+		 *    换文字、换点击逻辑，再挂回去，视觉上和内置项分不出来；
+		 * 3. 关页不调内部状态，直接点那页自己的关闭钮 [data-dockkit-tab-close=<tabId>]，
+		 *    和用户手点是同一条路径，面板生命周期、撤销、存盘提示都不会被绕开。
+		 * 任何一步找不到该有的节点就安静退出，菜单保持原样。
+		 */
+		const DOCK_TAB_SELECTOR = "[data-dockkit-tab]";
+		const DOCK_MENU_SELECTOR = "[data-dockkit-tab-menu]";
+		const DOCK_MENU_CLOSE_SELECTOR = "[data-dockkit-menu-close]";
+		/** 打过标记的菜单不再补第二遍（React 重渲染、重复右键都不会叠加）。 */
+		const DOCK_MENU_MARK = "data-dshmh-tabmenu";
+		/** 最近一次右键的现场：{ tabs: [{ el, id }], index }。 */
+		let tabMenuContext = null;
+		let tabMenuBound = false;
+
+		/**
+		 * 菜单文案。t() 还没被 locale 绑上时返回键名，这里回退到中文，免得菜单里出现 `tabMenuCloseAll`。
+		 * @param {string} key - 词条键。
+		 * @returns {string} 文案。
+		 */
+		function tabMenuText(key) {
+			const value = t(key);
+			if (typeof value === "string" && value !== key) return value;
+			const fallback = DICT.zh[key];
+			return typeof fallback === "string" ? fallback : key;
+		}
+
+		/** 标签元素的 tabId（dockkit 把 tabId 直接写在 data-dockkit-tab 上）。 */
+		function tabIdOf(element) {
+			if (element === null || element === undefined) return null;
+			const dataset = element.dataset;
+			if (dataset !== undefined && typeof dataset.dockkitTab === "string" && dataset.dockkitTab !== "") return dataset.dockkitTab;
+			const attribute = typeof element.getAttribute === "function" ? element.getAttribute("data-dockkit-tab") : null;
+			return attribute === null || attribute === "" ? null : attribute;
+		}
+
+		/** 属性选择器里的 id 转义：tabId 里带冒号/点也不至于让选择器报错。 */
+		function escapeAttribute(value) {
+			const text = String(value);
+			if (typeof window !== "undefined" && window.CSS !== undefined && typeof window.CSS.escape === "function") return window.CSS.escape(text);
+			return text.replace(/["\\]/g, "\\$&");
+		}
+
+		/**
+		 * 关一页：点它自己的关闭钮。找不到关闭钮（不可关闭的引导页之类）就跳过。
+		 * @param {string} tabId - 标签 id。
+		 * @returns {boolean} 是否点到了关闭钮。
+		 */
+		function closeDockTab(tabId) {
+			if (tabId === null) return false;
+			const button = document.querySelector('[data-dockkit-tab-close="' + escapeAttribute(tabId) + '"]');
+			if (button === null) return false;
+			button.click();
+			return true;
+		}
+
+		/**
+		 * 关掉菜单：dockkit 自己在 document 捕获阶段监听 Escape，派一个就够。
+		 * 万一它对 `isTrusted` 有讲究，补一发外点 pointerdown 兜底。
+		 * @returns {void}
+		 */
+		function dismissDockMenu() {
+			try {
+				document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+			} catch (error) {
+				console.error("[dsh-menu-hidden] dismiss tab menu failed", error);
+			}
+			window.setTimeout(() => {
+				const menu = document.querySelector(DOCK_MENU_SELECTOR);
+				if (menu === null) return;
+				try {
+					menu.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+					if (document.body !== null) document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+				} catch {
+					/* 构造不出 PointerEvent 就算了，Escape 一般已经生效 */
+				}
+			}, 0);
+		}
+
+		/**
+		 * 给刚打开的 dock 菜单补四项。
+		 * @returns {void}
+		 */
+		function enhanceDockMenu() {
+			if (prefs.tabMenu !== true) return;
+			if (typeof document === "undefined") return;
+			const menus = document.querySelectorAll(DOCK_MENU_SELECTOR);
+			if (menus.length === 0) return;
+			const menu = menus[menus.length - 1];
+			if (menu.getAttribute(DOCK_MENU_MARK) !== null) return;
+			const context = tabMenuContext;
+			if (context === null) return;
+			menu.setAttribute(DOCK_MENU_MARK, "1");
+			const template = menu.querySelector(DOCK_MENU_CLOSE_SELECTOR);
+			const tabs = context.tabs;
+			const index = context.index;
+			const idsOf = (list) => list.map((entry) => entry.id).filter((id) => id !== null);
+			const others = tabs.filter((entry, position) => position !== index);
+			const left = tabs.slice(0, index);
+			const right = tabs.slice(index + 1);
+			const entries = [
+				{ key: "tabMenuCloseOthers", ids: idsOf(others), disabled: others.length === 0 },
+				{ key: "tabMenuCloseLeft", ids: idsOf(left), disabled: left.length === 0 },
+				{ key: "tabMenuCloseRight", ids: idsOf(right), disabled: right.length === 0 },
+				{ key: "tabMenuCloseAll", ids: idsOf(tabs), disabled: tabs.length === 0 },
+			];
+			for (const entry of entries) {
+				const node = template !== null ? template.cloneNode(true) : document.createElement("button");
+				if (template !== null) node.removeAttribute("data-dockkit-menu-close");
+				else {
+					node.setAttribute("type", "button");
+					node.setAttribute("role", "menuitem");
+					node.className = "dshmh-menuItem";
+				}
+				node.textContent = tabMenuText(entry.key);
+				node.setAttribute("data-dshmh-tabmenu-item", entry.key);
+				if (entry.disabled === true) {
+					node.setAttribute("aria-disabled", "true");
+					node.style.opacity = ".45";
+					node.style.pointerEvents = "none";
+				}
+				node.addEventListener("click", (event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					if (entry.disabled === true) return;
+					dismissDockMenu();
+					for (const id of entry.ids) {
+						try {
+							closeDockTab(id);
+						} catch (error) {
+							console.error("[dsh-menu-hidden] close tab failed", id, error);
+						}
+					}
+				}, true);
+				menu.appendChild(node);
+			}
+		}
+
+		/**
+		 * 右键现场记录。React 的 onContextMenu 在本监听之后才跑，所以这里只是「先记住点的是谁」。
+		 * @param {MouseEvent} event - 右键事件。
+		 * @returns {void}
+		 */
+		function rememberTabMenuContext(event) {
+			if (prefs.tabMenu !== true) {
+				tabMenuContext = null;
+				return;
+			}
+			const target = event.target;
+			if (!(target instanceof Element)) {
+				tabMenuContext = null;
+				return;
+			}
+			const tab = target.closest(DOCK_TAB_SELECTOR);
+			if (tab === null) {
+				tabMenuContext = null;
+				return;
+			}
+			const strip = tab.parentElement;
+			const tabs = strip === null ? [tab] : Array.from(strip.querySelectorAll(DOCK_TAB_SELECTOR));
+			const index = tabs.indexOf(tab);
+			tabMenuContext = {
+				tabs: tabs.map((element) => ({ el: element, id: tabIdOf(element) })),
+				index: index < 0 ? 0 : index,
+			};
+			// 菜单是这一轮 React 提交里挂上去的：微任务看一次，下一帧再看一次，补上就收工。
+			Promise.resolve().then(enhanceDockMenu);
+			window.requestAnimationFrame(() => {
+				enhanceDockMenu();
+			});
+			window.setTimeout(enhanceDockMenu, 50);
+		}
+
+		function installTabMenuEnhancer() {
+			if (tabMenuBound === true) return;
+			if (typeof document === "undefined") return;
+			document.addEventListener("contextmenu", rememberTabMenuContext, true);
+			tabMenuBound = true;
+		}
+
+		function uninstallTabMenuEnhancer() {
+			if (tabMenuBound !== true) return;
+			document.removeEventListener("contextmenu", rememberTabMenuContext, true);
+			tabMenuBound = false;
+			tabMenuContext = null;
 		}
 
 		// ── §8 设置页 ─────────────────────────────────────────────────────────
@@ -1261,15 +1552,20 @@ function registerClient() {
 
 			const shellPatched = shell !== null && shell.patched === true;
 			const shellFound = shell !== null && shell.found === true;
+			// asar 版改的是磁盘上的覆盖层，当前进程早把 main.js 读进内存了，得重启才看得见。
+			const shellPending = shell !== null && shell.needsRestart === true && shell.override === true;
 			const shellState = shell === null
 				? ""
 				: shellFound
-					? shellPatched ? t("shellStateOn") + " · " + String(shell.file ?? "") : t("shellStateOff") + " · " + String(shell.file ?? "")
+					? (shellPatched ? t("shellStateOn") + " · " + String(shell.file ?? "") : t("shellStateOff") + " · " + String(shell.file ?? ""))
+						+ (shellPending ? " · " + t("shellStateRestart") : "")
 					: t("shellStateMissing");
 
 			const rows = [
 				["accountGroup", "accountGroupLabel", "accountGroupHint"],
 				["officialGroup", "officialGroupLabel", "officialGroupHint"],
+				["scheduleAccountGroup", "scheduleAccountGroupLabel", "scheduleAccountGroupHint"],
+				["scheduleOfficialGroup", "scheduleOfficialGroupLabel", "scheduleOfficialGroupHint"],
 				["subagentAccount", "subagentAccountLabel", "subagentAccountHint"],
 				["subagentOfficial", "subagentOfficialLabel", "subagentOfficialHint"],
 			].map(([key, label, hint]) => React.createElement(ToggleRow, {
@@ -1582,6 +1878,14 @@ function registerClient() {
 
 				providers.length > 0 ? null : React.createElement("p", { className: "dshmh-hint" }, t("reasoningEmpty")));
 			const renderEnhancePanel = () => React.createElement(React.Fragment, null,
+				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupTabMenu")),
+				React.createElement(ToggleRow, {
+					label: t("tabMenuLabel"),
+					hint: t("tabMenuHint"),
+					checked: prefs.tabMenu === true,
+					onChange: toggle("tabMenu"),
+				}),
+				React.createElement("h3", { className: "dshmh-subtitle" }, t("groupShell")),
 				React.createElement("div", { className: "dshmh-row" },
 					React.createElement("span", { className: "dshmh-text" },
 						React.createElement("span", { className: "dshmh-label" }, t("shellLabel")),
@@ -1770,7 +2074,11 @@ function registerClient() {
 				injectStyle();
 				syncPreHide();
 				startObserver();
-				ctx.effect(() => () => { stopObserver(); });
+				installTabMenuEnhancer();
+				ctx.effect(() => () => {
+					uninstallTabMenuEnhancer();
+					stopObserver();
+				});
 			} catch (error) {
 				// 隐藏引擎自己出问题，也不许把整张模块图的激活状态带下去。
 				console.warn("[dsh-menu-hidden] hide engine did not start", error);

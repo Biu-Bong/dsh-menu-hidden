@@ -22,6 +22,7 @@ import { existsSync, readFileSync, statSync, watch } from 'node:fs'
 import { LEVELS, applyReasoning, auditLevels, configFiles as configFilesForWatch, readState as readReasoningState, readStatus } from './reasoning.js'
 import { copyFile, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { clearOverride, isOverridden, readEffectiveText, splitAsarPath, writeOverride } from './shell/asar-patch.mjs'
 
 /** 路由挂在 Host 的 webServer 服务上；Cordis 里不声明就拿不到 ctx.webServer。 */
 export const inject = ['webServer']
@@ -47,16 +48,52 @@ function currentProfile(ctx) {
   return 'desktop'
 }
 
-/** 桌面版自带的 dsh CLI：<app>/resources/cli/bin/dsh.cmd（相对 main.js 的 resources 目录）。 */
+/**
+ * 桌面版自带的 dsh CLI。
+ *
+ * 0.2.1 及以前：`<安装目录>/resources/runtime/cli/bin/dsh.cmd`（一个 cmd 包装）。
+ * 0.2.2 起：`resources/runtime` 是空目录，CLI 挪进 asar：
+ *   `resources/app.asar/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js`
+ * 它是普通 ESM 入口，用 Electron 二进制的 node 模式跑即可：
+ *   ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" <bin.js> plugin --profile desktop add ...
+ * 所以这里返回「可执行文件 + 脚本」而不是单个 cmd 路径。
+ * @returns {{ exe: string, script: string, args: string[] } | null} 能跑的组合。
+ */
 function resolveCli() {
-  const candidates = []
-  const push = (value) => { if (typeof value === 'string' && value !== '' && !candidates.includes(value)) candidates.push(value) }
-  const executable = process.argv[0]
-  if (typeof executable === 'string' && executable !== '') push(join(dirname(executable), 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd'))
-  for (const root of [process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'), process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness')]) {
-    if (root) push(join(root, 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd'))
+  const scripts = []
+  const cmds = []
+  const seen = new Set()
+  const pushScript = (value) => {
+    if (typeof value !== 'string' || value === '' || seen.has(value)) return
+    seen.add(value)
+    scripts.push(value)
   }
-  return candidates.find((candidate) => existsSync(candidate)) ?? null
+  const pushCmd = (value) => {
+    if (typeof value !== 'string' || value === '' || seen.has(value)) return
+    seen.add(value)
+    cmds.push(value)
+  }
+  const fromResources = (resources) => {
+    pushCmd(join(resources, 'runtime', 'cli', 'bin', 'dsh.cmd'))
+    pushScript(join(resources, 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'))
+    pushScript(join(resources, 'app', 'dsh', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'))
+  }
+  const executable = process.argv[0]
+  if (typeof executable === 'string' && executable !== '') fromResources(join(dirname(executable), 'resources'))
+  for (const argument of process.argv.slice(1)) {
+    if (typeof argument !== 'string' || argument === '') continue
+    // argv 里那个 `...\resources\app.asar\dsh`（或旧版 `...\resources\app\dsh`）就是 runtimeDir。
+    if (/[\\/]resources[\\/](app\.asar|app)[\\/]dsh$/i.test(argument)) fromResources(join(argument, '..', '..'))
+  }
+  for (const root of [process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'), process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness')]) {
+    if (root) fromResources(join(root, 'resources'))
+  }
+  const exe = typeof process.execPath === 'string' && process.execPath !== '' ? process.execPath : null
+  const script = scripts.find((candidate) => existsSync(candidate))
+  if (script !== undefined && exe !== null) return { exe, script, args: [] }
+  const cmd = cmds.find((candidate) => existsSync(candidate))
+  if (cmd !== undefined) return { exe: 'cmd.exe', script: cmd, args: ['/c'] }
+  return null
 }
 
 /** 官方原样：development 为 false 时整段被丢掉。 */
@@ -88,9 +125,12 @@ const MARK_SHELL = 'applicationItems'
  * 宿主是 Electron 用 node 模式拉起来的独立进程（main.js 里 spawn 的），拿不到
  * electron API，但 process.argv 里带着足够的信息：
  *   argv[0] = "<安装目录>\\DeepSeek Harness.exe"
- *   argv[2] = "<app>\\resources\\app\\dsh"（runtimeDir）
+ *   argv[2] = "<app>\\resources\\app.asar\\dsh"（runtimeDir，0.2.2 起是 asar）
  * 两条路都试，再兜一层环境变量和两处常见安装位置。
- * @returns {{ tried: string[], file: string | null }}
+ *
+ * 0.2.2 起应用被打了 asar，入口是 `resources/app.asar/lib/main.js`；
+ * 旧版解包布局 `resources/app/lib/main.js` 仍然排在前面，两个版本都能命中。
+ * @returns {{ tried: string[], file: string | null }} 试过的路径与命中的那个。
  */
 function resolveShellMain() {
   const tried = []
@@ -101,7 +141,10 @@ function resolveShellMain() {
   }
   push(process.env.DSH_SHELL_MAIN_JS)
   const executable = process.argv[0]
-  if (typeof executable === 'string' && executable !== '') push(join(dirname(executable), 'resources', 'app', 'lib', 'main.js'))
+  if (typeof executable === 'string' && executable !== '') {
+    push(join(dirname(executable), 'resources', 'app', 'lib', 'main.js'))
+    push(join(dirname(executable), 'resources', 'app.asar', 'lib', 'main.js'))
+  }
   for (const argument of process.argv.slice(1)) {
     if (typeof argument !== 'string' || argument === '') continue
     if (!existsSync(join(argument, 'package.json'))) continue
@@ -109,9 +152,23 @@ function resolveShellMain() {
   }
   // 兜底：Windows 上常见的两处安装位置。别写死某台机器的目录。
   for (const root of [process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs', 'DeepSeek Harness'), process.env.ProgramFiles && join(process.env.ProgramFiles, 'DeepSeek Harness')]) {
-    if (root) push(join(root, 'resources', 'app', 'lib', 'main.js'))
+    if (root) {
+      push(join(root, 'resources', 'app', 'lib', 'main.js'))
+      push(join(root, 'resources', 'app.asar', 'lib', 'main.js'))
+    }
   }
   return { tried, file: tried.find((candidate) => looksLikeShellMain(candidate)) ?? null }
+}
+
+/**
+ * 读外壳正文：asar 内走「覆盖层优先」，普通文件直接读。
+ * @param {string} file - 外壳 main.js 路径（可能带 `.asar`）。
+ * @returns {string} 正文。
+ */
+function readShellText(file) {
+  const split = splitAsarPath(file)
+  if (split !== null) return readEffectiveText(split.archive, split.entry)
+  return readFileSync(file, 'utf8')
 }
 
 /**
@@ -122,7 +179,7 @@ function resolveShellMain() {
 function looksLikeShellMain(file) {
   try {
     if (!existsSync(file)) return false
-    return readFileSync(file, 'utf8').includes(MARK_SHELL)
+    return readShellText(file).includes(MARK_SHELL)
   } catch {
     return false
   }
@@ -130,20 +187,25 @@ function looksLikeShellMain(file) {
 
 /**
  * 读当前补丁状态。
- * @returns {{ found: boolean, file: string | null, patched: boolean, original: boolean, tried: string[] }} 状态。
+ *
+ * `asar: true` 表示外壳在归档里：改的是「覆盖层」（app.asar.unpacked/lib/main.js），
+ * 头部把该条目标成 unpacked，所以**必须重启应用**才生效，且归档本身一字节没动。
+ * @returns {{ found: boolean, file: string | null, patched: boolean, original: boolean, tried: string[], asar: boolean, override: boolean, needsRestart: boolean }} 状态。
  */
 function shellState() {
   const { tried, file } = resolveShellMain()
-  if (file === null) return { found: false, file: null, patched: false, original: false, tried }
+  if (file === null) return { found: false, file: null, patched: false, original: false, tried, asar: false, override: false, needsRestart: false }
+  const split = splitAsarPath(file)
   let text
   try {
-    text = readFileSync(file, 'utf8')
+    text = readShellText(file)
   } catch (error) {
     // 更新过程里文件会被独占，读不到就当「没打补丁」，别把整条状态路由带成 500。
-    return { found: true, file, patched: false, mode: null, original: false, tried, error: `读取失败：${describe(error)}` }
+    return { found: true, file, patched: false, mode: null, original: false, tried, asar: split !== null, override: false, needsRestart: false, error: `读取失败：${describe(error)}` }
   }
   const selfCheck = text.includes(MARK_PATCHED)
   const legacy = text.includes(MARK_PATCHED_LEGACY)
+  const override = split === null ? false : isOverridden(split.archive, split.entry)
   return {
     found: true,
     file,
@@ -151,11 +213,73 @@ function shellState() {
     mode: selfCheck ? 'self-check' : legacy ? 'always' : null,
     original: text.includes(MARK_ORIGINAL),
     tried,
+    asar: split !== null,
+    override,
+    needsRestart: split !== null,
   }
 }
 
 /**
- * 写入或还原补丁。幂等；第一次写入前留一份 .menuhidden.bak。
+ * asar 模式：外壳正文在归档里，用「unpacked 覆盖层」代替改文件。
+ *
+ * 归档里的 packed 正文一个字节都不动，所以还原就是删覆盖文件 + 条目改回 packed，
+ * 重新读到的必然是官方原样。每次写入都重算覆盖正文，天然幂等。
+ * @param {{ archive: string, entry: string }} split - 归档与条目。
+ * @param {boolean} enabled - true 打开菜单项，false 还原。
+ * @returns {Promise<{ ok: boolean, changed?: boolean, reason?: string, error?: string } & ReturnType<typeof shellState>>} 结果。
+ */
+async function setAsarPatch(split, enabled) {
+  let text
+  try {
+    text = readEffectiveText(split.archive, split.entry)
+  } catch (error) {
+    return { ...shellState(), ok: false, error: `读取归档失败：${describe(error)}` }
+  }
+  const hits = text.split(MARK_ORIGINAL).length - 1
+  const patchedHits = text.split(MARK_PATCHED).length - 1
+  const legacyHits = text.split(MARK_PATCHED_LEGACY).length - 1
+  if (enabled) {
+    if (patchedHits === 1) return { ...shellState(), ok: true, changed: false, reason: 'already-patched' }
+    const source = legacyHits === 1 ? MARK_PATCHED_LEGACY : MARK_ORIGINAL
+    if (legacyHits !== 1 && hits !== 1) {
+      return { ...shellState(), ok: false, error: `定位失败：归档里 "${MARK_ORIGINAL}" 命中 ${hits} 处（期望 1 处）。这个版本的外壳结构变了，补丁没有写入。` }
+    }
+    try {
+      writeOverride(split.archive, split.entry, text.replace(source, MARK_PATCHED))
+    } catch (error) {
+      return { ...shellState(), ok: false, error: `写入覆盖层失败：${describe(error)}` }
+    }
+    const after = shellState()
+    if (after.patched !== true) return { ...after, ok: false, error: '写入后回读没看到补丁标记，覆盖层可能没生效。' }
+    return { ...after, ok: true, changed: true, needsRestart: true }
+  }
+  // 还原：优先「卸掉覆盖层」（packed 正文原封不动，最干净）。
+  try {
+    clearOverride(split.archive, split.entry)
+  } catch (error) {
+    return { ...shellState(), ok: false, error: `还原失败：${describe(error)}` }
+  }
+  let reverted = shellState()
+  if (reverted.patched === true) {
+    // 覆盖层卸了还是补丁态 → 说明 packed 正文本身被人改过（0.2.30 的等长替换版本）。
+    // 这种情况只能把补丁标记就地换回原样，再写回覆盖层。
+    try {
+      const now = readEffectiveText(split.archive, split.entry)
+      const target = now.split(MARK_PATCHED).length - 1 === 1 ? MARK_PATCHED : now.split(MARK_PATCHED_LEGACY).length - 1 === 1 ? MARK_PATCHED_LEGACY : null
+      if (target === null) return { ...reverted, ok: false, error: '还原失败：归档里的补丁标记认不出来。' }
+      writeOverride(split.archive, split.entry, now.replace(target, MARK_ORIGINAL))
+    } catch (error) {
+      return { ...shellState(), ok: false, error: `还原失败：${describe(error)}` }
+    }
+    reverted = shellState()
+    if (reverted.patched === true) return { ...reverted, ok: false, error: '还原后回读仍是补丁状态。' }
+    return { ...reverted, ok: true, changed: true, needsRestart: true }
+  }
+  return { ...reverted, ok: true, changed: true, needsRestart: true }
+}
+
+/**
+ * 写入或还原补丁。幂等；解包布局下第一次写入前留一份 .menuhidden.bak。
  * @param {boolean} enabled - true 打开菜单项，false 还原。
  * @returns {Promise<{ ok: boolean, changed?: boolean, reason?: string, error?: string } & ReturnType<typeof shellState>>} 结果。
  */
@@ -164,6 +288,8 @@ async function setShellPatch(enabled) {
   if (!state.found || state.file === null) {
     return { ...state, ok: false, error: '没找到外壳 main.js；可用环境变量 DSH_SHELL_MAIN_JS 指定绝对路径。' }
   }
+  const split = splitAsarPath(state.file)
+  if (split !== null) return setAsarPatch(split, enabled)
   // 0.2.26/0.2.27 写进去的是恒真条件：功能一样，但没有自愈能力；点一次「写入」顺手升级成自检版。
   if (enabled && state.patched && state.mode === 'self-check') return { ...state, ok: true, changed: false, reason: 'already-patched' }
   if (!enabled && !state.patched) return { ...state, ok: true, changed: false, reason: 'already-clean' }
@@ -613,8 +739,15 @@ export function apply(ctx, config = {}) {
         return
       }
       const spec = `github:${REPO_SLUG}@v${latest}`
+      // asar 布局下 CLI 是 `...\app.asar\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js`，
+      // 拿 Electron 二进制的 node 模式跑：ELECTRON_RUN_AS_NODE=1。
+      const isNodeCli = cli.script.endsWith('.js')
+      const argv = isNodeCli
+        ? [cli.script, 'plugin', '--profile', currentProfile(ctx), 'add', spec]
+        : ['/c', cli.script, 'plugin', '--profile', currentProfile(ctx), 'add', spec]
+      const env = isNodeCli ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env
       const result = await new Promise((done) => {
-        const child = spawn('cmd.exe', ['/c', cli, 'plugin', '--profile', currentProfile(ctx), 'add', spec], { windowsHide: true })
+        const child = spawn(cli.exe, argv, { windowsHide: true, env })
         let output = ''
         const collect = (chunk) => { if (output.length < 8000) output += String(chunk) }
         child.stdout.on('data', collect)
@@ -624,7 +757,7 @@ export function apply(ctx, config = {}) {
         child.on('close', (code) => { clearTimeout(timer); done({ ok: code === 0, output: output.trim(), error: code === 0 ? null : `退出码 ${String(code)}` }) })
       })
       info(`install ${spec}: ok=${String(result.ok)}`)
-      send(200, { ok: result.ok, output: result.output, error: result.error, profile: currentProfile(ctx) })
+      send(200, { ok: result.ok, output: result.output, error: result.error, profile: currentProfile(ctx), cli: cli.script })
       return
     }
     if (request.method !== 'GET') {

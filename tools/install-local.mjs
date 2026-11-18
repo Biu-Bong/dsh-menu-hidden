@@ -17,6 +17,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const COPY = ['package.json', 'index.js', 'client.js', 'reasoning.js', 'cordis.patch.yml', 'icon.svg', 'locale', 'README.md', 'LICENSE']
@@ -189,22 +190,114 @@ if (dryRun) {
   process.exit(0)
 }
 
-fs.mkdirSync(target, { recursive: true })
-if (arg('no-backup', false) !== true && fs.existsSync(path.join(target, 'package.json'))) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const backup = `${target}.bak-${stamp}`
-  fs.cpSync(target, backup, { recursive: true })
-  notes.push(`旧目录已备份到 ${backup}`)
-}
-for (const entry of fs.readdirSync(stage)) {
-  fs.rmSync(path.join(target, entry), { recursive: true, force: true })
-  fs.cpSync(path.join(stage, entry), path.join(target, entry), { recursive: true })
+fs.mkdirSync(path.dirname(target), { recursive: true })
+
+// 目标可能是指向源码的目录联接 / 符号链接（pnpm 的 `link:` 依赖就是这样）。
+// 这两种情况都不能走「备份 + 逐条目覆盖」：
+//   1) cpSync 备份时要重建链接，Windows 上非管理员直接 EPERM；
+//   2) 逐条目 rmSync 会顺着链接删掉源码目录里的真实文件。
+// 链接本来就已经是「实时读源码」，只要它指对了，就什么都不用复制。
+const targetStat = fs.lstatSync(target, { throwIfNoEntry: false })
+if (targetStat !== undefined && targetStat.isSymbolicLink()) {
+  const currentReal = fs.realpathSync(target)
+  const sourceReal = fs.realpathSync(source)
+  if (currentReal === sourceReal) {
+    notes.push(`目标已是指向源码的链接，不用复制：${target} -> ${sourceReal}`)
+  } else {
+    fs.unlinkSync(target)
+    fs.symlinkSync(sourceReal, target, process.platform === 'win32' ? 'junction' : 'dir')
+    notes.push(`目标链接改指源码：${target} -> ${sourceReal}`)
+  }
+} else {
+  if (arg('no-backup', false) !== true && fs.existsSync(path.join(target, 'package.json'))) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backup = `${target}.bak-${stamp}`
+    fs.cpSync(target, backup, { recursive: true })
+    notes.push(`旧目录已备份到 ${backup}`)
+  }
+  for (const entry of fs.readdirSync(stage)) {
+    fs.rmSync(path.join(target, entry), { recursive: true, force: true })
+    fs.cpSync(path.join(stage, entry), path.join(target, entry), { recursive: true })
+  }
 }
 fs.rmSync(stage, { recursive: true, force: true })
+
+// 装完顺手把 profile 的依赖 pin 到本地源码：不改的话，下一次 pnpm install 会按
+// package.json 里的 github: spec 重新拉远端 tarball，把这里刚装的新版换回旧版。
+const pinned = arg('no-pin', false) === true
+  ? null
+  : pinProfileDependency(path.dirname(path.dirname(target)), source)
+if (pinned !== null) notes.push(pinned)
 
 const finalCheck = inspect(target)
 report({ pkg: finalCheck?.pkg ?? pkg, dir: target })
 process.exit(problems.length === 0 ? 0 : 1)
+
+/**
+ * 把 profile 的 package.json / pnpm-lock.yaml 里这个包改成 `link:` 本地源码，
+ * 这样后续 pnpm install 只会把它链到源码目录，不会再从 GitHub tarball 覆盖。
+ * 返回一句提示；没做任何事就返回 null。
+ */
+function pinProfileDependency(profileDir, linkPath) {
+  const manifestPath = path.join(profileDir, 'package.json')
+  if (!fs.existsSync(manifestPath)) return null
+  const manifest = readJson(manifestPath)
+  if (manifest === null || manifest.dependencies?.[PKG_NAME] === undefined) return null
+
+  const spec = `link:${linkPath.split(path.sep).join('/')}`
+  const notesOut = []
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+
+  if (manifest.dependencies[PKG_NAME] !== spec) {
+    fs.cpSync(manifestPath, `${manifestPath}.bak-before-pin-${stamp}`)
+    manifest.dependencies[PKG_NAME] = spec
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    notesOut.push(`依赖已 pin 成 ${spec}`)
+  }
+
+  const lockPath = path.join(profileDir, 'pnpm-lock.yaml')
+  if (fs.existsSync(lockPath)) {
+    const before = fs.readFileSync(lockPath, 'utf8')
+    let lock = before
+    lock = lock.replace(
+      new RegExp(`(\\n      ${PKG_NAME}:\\n        specifier: )[^\\n]+(\\n        version: )[^\\n]+`),
+      (_match, head, mid) => `${head}${spec}${mid}${spec}`,
+    )
+    lock = dropLockBlocks(lock, PKG_NAME)
+    if (lock !== before) {
+      fs.cpSync(lockPath, `${lockPath}.bak-before-pin-${stamp}`)
+      fs.writeFileSync(lockPath, lock, 'utf8')
+      notesOut.push('pnpm-lock.yaml 里的 tarball 条目已清掉，只剩 link 解析')
+    }
+    try {
+      const yamlPath = path.join(profileDir, 'node_modules', 'js-yaml')
+      if (fs.existsSync(yamlPath)) {
+        const yaml = createRequire(yamlPath)(yamlPath)
+        yaml.load(lock)
+        notesOut.push('pnpm-lock.yaml 解析校验通过')
+      }
+    } catch (error) {
+      notesOut.push(`pnpm-lock.yaml 解析校验没过：${error.message}`)
+    }
+  }
+
+  return notesOut.length === 0 ? null : notesOut.join('；')
+}
+
+/** 删掉 packages / snapshots 段里这个包的 tarball 条目（保留 link: 那种）。 */
+function dropLockBlocks(text, name) {
+  const lines = text.split('\n')
+  const out = []
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    const isForeignBlock = line.startsWith(`  ${name}@`) && line.endsWith(':') && !line.startsWith(`  ${name}@link:`)
+    if (!isForeignBlock) { out.push(line); continue }
+    i += 1
+    while (i < lines.length && (lines[i].startsWith('   ') || lines[i].trim() === '')) i += 1
+    i -= 1
+  }
+  return out.join('\n')
+}
 
 function report(state) {
   const lines = []
