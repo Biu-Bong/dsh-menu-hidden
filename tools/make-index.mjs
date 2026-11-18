@@ -17,9 +17,21 @@ const OUT = `${ROOT}market/index.json`
 const REPO_URL = 'https://github.com/Biu-Bong/dsh-menu-hidden'
 
 const pkg = JSON.parse(fs.readFileSync(`${ROOT}package.json`, 'utf8'))
-const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
+// 优先钉到 `v<version>` 标签指向的提交：发布之后还会有只改元数据的提交，
+// 索引要指向真正发出去的那份代码，不能跟着 HEAD 漂。
+const commit = (() => {
+  try {
+    return execFileSync('git', ['rev-parse', `v${pkg.version}^{commit}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()
+  }
+})()
 const publishTimestamp = Number(
-  execFileSync('git', ['log', '-1', '--format=%ct'], { cwd: ROOT, encoding: 'utf8' }).trim()
+  execFileSync('git', ['log', '-1', '--format=%ct', commit], { cwd: ROOT, encoding: 'utf8' }).trim()
 )
 
 const pkgRepo = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url ?? REPO_URL
